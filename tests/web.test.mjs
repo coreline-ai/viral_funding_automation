@@ -16,11 +16,14 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.match(html, /memory_node_graph 예제로 1턴 실행/);
   assert.match(html, /role="tablist"/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 3);
-  assert.match(html, />X</);
-  assert.match(html, />GeekNews Show</);
-  assert.match(html, />DEV 기술 글</);
-  assert.match(html, /Show HN은 현재 자동 생성하지 않습니다/);
+  assert.equal((html.match(/role="tab"/g) ?? []).length, 12);
+  for (const label of ["X 1안", "X 스레드", "Threads", "Reddit", "LinkedIn", "Disquiet", "GeekNews", "DEV", "Shorts", "Show HN"]) {
+    assert.match(html, new RegExp(`>${label}<`));
+  }
+  assert.match(html, /전체 바이럴 채널 상태/);
+  assert.equal((html.match(/class="channel-grid"/g) ?? []).length, 1);
+  assert.equal((html.match(/<article data-state=/g) ?? []).length, 13);
+  assert.match(html, /Reddit·GeekNews·Disquiet·DEV·Shorts·Show HN/);
   assert.match(html, /id="draft-editor"/);
   assert.match(html, /id="copy-button"/);
   assert.match(html, /id="download-button"/);
@@ -41,6 +44,8 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /https:\/\/github\.com\/coreline-ai\/memory_node_graph/);
   assert.match(app, /form\.requestSubmit\(\)/);
   assert.match(app, /coreline-launch:workspace:v1/);
+  assert.match(app, /STORAGE_VERSION = 2/);
+  assert.match(app, /migrateStoredWorkspace/);
   assert.match(app, /localStorage\.setItem/);
   assert.match(app, /localStorage\.getItem/);
   assert.match(app, /localStorage\.removeItem/);
@@ -50,8 +55,10 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /preflight/);
   assert.match(app, /countXWeightedCharacters/);
   assert.match(app, /280 가중자/);
-  assert.match(app, /X 형식 검사/);
+  assert.match(app, /X 스레드/);
+  assert.match(app, /서브레딧과 계정·규칙 확인 전 게시 금지/);
   assert.match(app, /DEV 기술 글/);
+  assert.match(app, /Show HN/);
   assert.match(app, /이전 작업을 복원했습니다/);
   assert.doesNotMatch(app, /GITHUB_TOKEN|GH_TOKEN|Authorization/);
 });
@@ -82,8 +89,8 @@ test("본문 가독성·반응형·reduced motion 계약을 포함한다", () =>
   assert.match(css, /@media \(max-width: 1180px\)/);
   assert.match(css, /@media \(max-width: 760px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.draft-tabs\s*\{[^}]*overflow-x:\s*hidden/s);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.draft-tabs button\s*\{[^}]*flex:\s*1 1 0/s);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.draft-tabs\s*\{[^}]*overflow-x:\s*auto/s);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.channel-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2/s);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /focus-visible/);
 });

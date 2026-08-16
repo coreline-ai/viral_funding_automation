@@ -552,6 +552,95 @@ a:hover {
   border-radius: 4px;
 }
 
+.channel-board {
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.channel-board-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.channel-board-heading h3 {
+  margin: 5px 0 0;
+  font-size: 16px;
+  font-weight: 570;
+}
+
+.channel-board-heading > p {
+  max-width: 590px;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: right;
+}
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+.channel-grid article {
+  position: relative;
+  min-width: 0;
+  min-height: 67px;
+  padding: 14px 14px 13px 22px;
+  background: var(--surface-strong);
+}
+
+.channel-grid article::before {
+  position: absolute;
+  top: 19px;
+  left: 11px;
+  width: 5px;
+  height: 5px;
+  content: "";
+  background: var(--text-3);
+  border-radius: 50%;
+}
+
+.channel-grid article[data-state="draft"]::before {
+  background: var(--mint);
+  box-shadow: 0 0 8px rgba(121, 213, 192, 0.52);
+}
+
+.channel-grid article[data-state="gate"]::before {
+  background: var(--amber);
+}
+
+.channel-grid article[data-state="hold"]::before {
+  background: var(--violet);
+}
+
+.channel-grid strong,
+.channel-grid span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-grid strong {
+  font-size: 12px;
+  font-weight: 580;
+}
+
+.channel-grid span {
+  margin-top: 5px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
 .draft-shell {
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -561,11 +650,14 @@ a:hover {
 .draft-tabs {
   display: flex;
   min-width: 0;
+  overflow-x: auto;
   border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
 }
 
 .draft-tabs button {
-  min-width: 142px;
+  flex: 0 0 auto;
+  min-width: 116px;
   min-height: 52px;
   padding: 0 18px;
   color: var(--text-3);
@@ -923,6 +1015,10 @@ a:hover {
   .welcome-copy h2 {
     font-size: clamp(40px, 7vw, 62px);
   }
+
+  .channel-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -1015,6 +1111,20 @@ a:hover {
     margin-top: 16px;
   }
 
+  .channel-board-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .channel-board-heading > p {
+    text-align: left;
+  }
+
+  .channel-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .draft-tabs {
     overflow-x: auto;
   }
@@ -1078,12 +1188,16 @@ a:hover {
   }
 
   .draft-tabs {
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 
   .draft-tabs button {
-    flex: 1 1 0;
+    flex: 0 0 104px;
     padding-inline: 8px;
+  }
+
+  .channel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .welcome-description {

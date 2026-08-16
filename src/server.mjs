@@ -143,9 +143,18 @@ async function buildGenerationResponse(repoUrl, options) {
     },
     summary,
     drafts: {
-      short: files["short-post.md"],
-      community: files["community-post.md"],
-      long: files["long-post.md"],
+      x1: files["x-single-1.md"],
+      x2: files["x-single-2.md"],
+      x3: files["x-single-3.md"],
+      xThread: files["x-thread.md"],
+      threads: files["threads-series.md"],
+      reddit: files["reddit-post.md"],
+      linkedin: files["linkedin-post.md"],
+      disquiet: files["disquiet-product.md"],
+      geeknews: files["geeknews-show.md"],
+      dev: files["dev-article.md"],
+      shorts: files["youtube-shorts.md"],
+      showHn: files["show-hn.md"],
     },
   };
 }

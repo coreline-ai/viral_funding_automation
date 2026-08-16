@@ -97,7 +97,7 @@ test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다",
   });
 });
 
-test("공개 GitHub URL을 분석해 GUI용 사실과 콘텐츠 3종을 반환한다", async () => {
+test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 12종을 반환한다", async () => {
   await withServer({ fetchImpl: githubFixtureFetch(), token: "server-only-token" }, async (origin) => {
     const response = await fetch(`${origin}/api/generate`, {
       method: "POST",
@@ -114,8 +114,24 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 콘텐츠 3종을 반환�
     assert.equal(payload.baseline.forks, 7);
     assert.equal(payload.baseline.openIssues, 3);
     assert.ok(!Number.isNaN(Date.parse(payload.baseline.capturedAt)));
-    assert.deepEqual(Object.keys(payload.drafts).sort(), ["community", "long", "short"]);
-    assert.match(payload.drafts.short, /AI Systems Atlas/);
+    assert.deepEqual(Object.keys(payload.drafts).sort(), [
+      "dev",
+      "disquiet",
+      "geeknews",
+      "linkedin",
+      "reddit",
+      "shorts",
+      "showHn",
+      "threads",
+      "x1",
+      "x2",
+      "x3",
+      "xThread",
+    ]);
+    assert.match(payload.drafts.x1, /AI Systems Atlas/);
+    assert.match(payload.drafts.threads, /Build in Public/);
+    assert.match(payload.drafts.reddit, /서브레딧/);
+    assert.match(payload.drafts.showHn, /HOLD/);
     assert.ok(!JSON.stringify(payload).includes("server-only-token"));
   });
 });

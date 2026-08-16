@@ -113,31 +113,63 @@ test("독립된 try 경로는 실제 데모 링크로 계속 인식한다", () =
   assert.equal(summary.demoUrl, "https://codapi.org/try/ripgrep/");
 });
 
-test("요약과 바이럴 콘텐츠 3종을 포함한 6개 파일을 렌더링한다", () => {
+test("요약과 주요 채널 수동 게시 출시팩 18개 파일을 렌더링한다", () => {
   const files = renderContentPack(buildProjectSummary(source));
 
   assert.deepEqual(Object.keys(files).sort(), [
     "community-post.md",
+    "dev-article.md",
+    "disquiet-product.md",
+    "geeknews-show.md",
+    "linkedin-post.md",
     "long-post.md",
     "project-summary.json",
     "project-summary.md",
+    "reddit-post.md",
     "short-post.md",
+    "show-hn.md",
+    "threads-series.md",
     "viral-hooks.md",
+    "x-single-1.md",
+    "x-single-2.md",
+    "x-single-3.md",
+    "x-thread.md",
+    "youtube-shorts.md",
   ]);
   assert.doesNotThrow(() => JSON.parse(files["project-summary.json"]));
-  assert.match(files["short-post.md"], /https:\/\/memory\.example/);
-  assert.doesNotMatch(files["short-post.md"], /^#/);
-  assert.ok(countXWeightedCharacters(files["short-post.md"].trim()) <= 240);
-  assert.match(files["community-post.md"], /^# GeekNews Show 게시 초안/m);
-  assert.match(files["community-post.md"], /등록 구분: `Show`/);
-  assert.match(files["community-post.md"], /현재 확인할 점/);
-  assert.doesNotMatch(files["community-post.md"], /프로젝트\./);
-  assert.match(files["long-post.md"], /^# .*DEV 기술 글 초안/m);
-  assert.match(files["long-post.md"], /## 해결하려는 문제/);
-  assert.match(files["long-post.md"], /## 접근 방식/);
-  assert.match(files["long-post.md"], /## 직접 실행하기/);
-  assert.match(files["long-post.md"], /## 게시 전 보강할 내용/);
-  assert.match(files["long-post.md"], /라이선스: MIT/);
+  const singles = ["x-single-1.md", "x-single-2.md", "x-single-3.md"].map((name) => files[name]);
+  assert.equal(new Set(singles).size, 3);
+  for (const draft of singles) {
+    assert.match(draft, /https:\/\/memory\.example/);
+    assert.doesNotMatch(draft, /^#/);
+    assert.ok(countXWeightedCharacters(draft.trim()) <= 240);
+  }
+  for (const segment of files["x-thread.md"].split(/\n\s*---\s*\n/u)) {
+    assert.ok(countXWeightedCharacters(segment.trim()) <= 280);
+  }
+  assert.match(files["threads-series.md"], /Threads Build in Public/);
+  assert.match(files["threads-series.md"], /## 5\/5 현재 단계와 피드백/);
+  assert.match(files["reddit-post.md"], /대상 서브레딧과 규칙 확인 전 게시 금지/);
+  assert.match(files["reddit-post.md"], /## 제목[\s\S]*## 본문/);
+  assert.match(files["reddit-post.md"], /업보트·Star를 요청하지 마세요/);
+  assert.match(files["linkedin-post.md"], /누구에게 유용한가/);
+  assert.match(files["disquiet-product.md"], /제품을 먼저 등록하고 검토받은 뒤/);
+  assert.match(files["geeknews-show.md"], /^# GeekNews Show 게시 초안/m);
+  assert.match(files["geeknews-show.md"], /등록 구분: `Show`/);
+  assert.doesNotMatch(files["geeknews-show.md"], /프로젝트\./);
+  assert.match(files["dev-article.md"], /^# .*DEV 기술 글 작업본/m);
+  assert.match(files["dev-article.md"], /## 해결하려는 문제/);
+  assert.match(files["dev-article.md"], /## 접근 방식/);
+  assert.match(files["dev-article.md"], /## 직접 실행하기/);
+  assert.match(files["dev-article.md"], /## 게시 전 보강할 내용/);
+  assert.match(files["dev-article.md"], /라이선스: MIT/);
+  assert.match(files["youtube-shorts.md"], /1080×1920/);
+  assert.match(files["youtube-shorts.md"], /## 20초 샷리스트/);
+  assert.match(files["show-hn.md"], /HOLD/);
+  assert.match(files["show-hn.md"], /Do not generate or automate HN comments/);
+  assert.equal(files["short-post.md"], files["x-single-1.md"]);
+  assert.equal(files["community-post.md"], files["geeknews-show.md"]);
+  assert.equal(files["long-post.md"], files["dev-article.md"]);
   assert.ok(!Object.values(files).join("\n").includes("혁신적인"));
 });
 
@@ -145,6 +177,9 @@ test("X 가중 문자는 CJK·emoji를 2자, URL을 23자로 계산한다", () =
   assert.equal(countXWeightedCharacters("abc"), 3);
   assert.equal(countXWeightedCharacters("한글"), 4);
   assert.equal(countXWeightedCharacters("🙂"), 2);
+  assert.equal(countXWeightedCharacters("👨‍👩‍👧‍👦"), 2);
+  assert.equal(countXWeightedCharacters("🙋🏽"), 2);
+  assert.equal(countXWeightedCharacters("cafe\u0301"), countXWeightedCharacters("café"));
   assert.equal(countXWeightedCharacters("https://example.com/very/long/path"), 23);
   assert.equal(countXWeightedCharacters("한 A https://example.com"), 2 + 1 + 1 + 1 + 23);
 });
@@ -154,7 +189,7 @@ test("생성 파일을 저장소 이름 디렉터리에 기록한다", async () 
   try {
     const outputDirectory = await writeContentPack(root, source.input.repo, renderContentPack(buildProjectSummary(source)));
     const names = (await readdir(outputDirectory)).sort();
-    assert.equal(names.length, 6);
+    assert.equal(names.length, 18);
     assert.equal(JSON.parse(await readFile(join(outputDirectory, "project-summary.json"), "utf8")).repository, source.repository.fullName);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -200,9 +235,9 @@ test("CLI 인자를 검증하고 네트워크 없는 실행도 가능하다", as
       stdout: (value) => output.push(value),
     });
     assert.equal(receipt.repository, source.input.fullName);
-    assert.equal(receipt.files.length, 6);
+    assert.equal(receipt.files.length, 18);
     assert.equal(output.length, 1);
-    assert.equal((await readdir(receipt.outputDirectory)).length, 6);
+    assert.equal((await readdir(receipt.outputDirectory)).length, 18);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -223,4 +258,41 @@ test("README가 없는 저장소도 사실 기반 기본 콘텐츠를 만든다"
   const files = renderContentPack(minimal);
   assert.equal(files["short-post.md"].split(minimal.description).length - 1, 1);
   assert.ok(countXWeightedCharacters(files["short-post.md"].trim()) <= 240);
+});
+
+test("채널 템플릿이 특정 지식 그래프 도메인을 다른 저장소에 덧붙이지 않는다", () => {
+  const unrelated = buildProjectSummary({
+    ...source,
+    input: {
+      owner: "sample",
+      repo: "tiny_calc",
+      fullName: "sample/tiny_calc",
+      url: "https://github.com/sample/tiny_calc",
+    },
+    repository: {
+      ...source.repository,
+      name: "tiny_calc",
+      fullName: "sample/tiny_calc",
+      description: "A small command-line calculator",
+      url: "https://github.com/sample/tiny_calc",
+      homepage: "https://calc.example",
+      topics: ["cli", "calculator"],
+      readmeUrl: "https://github.com/sample/tiny_calc/blob/main/README.md",
+    },
+    readme: "# Tiny Calc\n\nA small command-line calculator.\n\n## Features\n\n- Adds two numbers\n",
+    packageJson: null,
+  });
+  const files = renderContentPack(unrelated);
+  const channelDrafts = [
+    files["threads-series.md"],
+    files["reddit-post.md"],
+    files["linkedin-post.md"],
+    files["disquiet-product.md"],
+    files["youtube-shorts.md"],
+    files["show-hn.md"],
+  ].join("\n");
+
+  assert.doesNotMatch(channelDrafts, /knowledge graphs|growing Markdown|문서·지식 관리|관계와 근거/u);
+  assert.match(files["reddit-post.md"], /first-use experience/);
+  assert.match(files["youtube-shorts.md"], /Tiny Calc 실제 화면 20초 데모/);
 });

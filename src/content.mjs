@@ -189,16 +189,271 @@ function cleanChannelItems(values) {
   return values.map((value) => cleanTitle(value)).filter(Boolean);
 }
 
-function renderXPost(summary) {
+function renderXPost(summary, body) {
   const link = summary.demoUrl || summary.repositoryUrl;
   const suffix = `\n\n${link}`;
   const textBudget = 240 - countXWeightedCharacters(suffix);
-  const originalDescription = cleanMarkdown(summary.description);
-  const headline = originalDescription.toLocaleLowerCase().startsWith(cleanMarkdown(summary.name).toLocaleLowerCase())
-    ? originalDescription
-    : `${summary.name} — ${channelDescription(summary)}`;
-  const text = truncateXWeightedText(headline, textBudget);
+  const text = truncateXWeightedText(body, textBudget);
   return `${text}${suffix}\n`;
+}
+
+function renderXVariants(summary) {
+  const description = channelDescription(summary);
+  const feature = cleanChannelItems(summary.features)[0] || description;
+  const audience = summary.audiences[0] || "개발자";
+  const technology = summary.technologies.slice(0, 3).join(" · ");
+  const originalDescription = cleanMarkdown(summary.description);
+  const first = originalDescription.toLocaleLowerCase().startsWith(cleanMarkdown(summary.name).toLocaleLowerCase())
+    ? originalDescription
+    : `${summary.name} — ${description}`;
+  return [
+    renderXPost(summary, first),
+    renderXPost(summary, `${feature}. ${summary.name}에서 실제 결과와 구현을 공개했습니다.`),
+    renderXPost(summary, `${audience}를 위한 ${summary.name}. ${technology ? `${technology} 기반으로 ` : ""}${description}`),
+  ];
+}
+
+function renderXThread(summary) {
+  const link = summary.demoUrl || summary.repositoryUrl;
+  const features = cleanChannelItems(summary.features);
+  const finalSuffix = `\n${link}`;
+  const finalBody = `4/4 현재 확인할 점\n\n${summary.limitations.slice(0, 2).map((value) => `• ${value}`).join("\n") || "• README의 요구사항과 한계를 확인하세요."}\n\n직접 사용해 보고 막힌 부분을 알려주세요.`;
+  const segments = [
+    `1/4 ${summary.name}를 만든 이유\n\n${asSentence(channelDescription(summary))}`,
+    `2/4 해결 방식\n\n${features.slice(0, 2).map((value) => `• ${value}`).join("\n") || "• README에서 핵심 기능을 확인하세요."}`,
+    `3/4 구현 구성\n\n${summary.technologies.slice(0, 5).join(" · ") || "저장소 README에서 기술 구성을 확인할 수 있습니다."}`,
+    `${truncateXWeightedText(finalBody, 280 - countXWeightedCharacters(finalSuffix))}${finalSuffix}`,
+  ];
+  return `${segments.map((segment) => truncateXWeightedText(segment, 280)).join("\n\n---\n\n")}\n`;
+}
+
+function renderThreadsSeries(summary) {
+  const features = cleanChannelItems(summary.features);
+  const link = summary.demoUrl || summary.repositoryUrl;
+  return `# Threads Build in Public 연속 게시 초안
+
+> 각 번호를 별도 게시물로 올리고, 실제 대표 이미지를 첫 게시물에 첨부하세요.
+
+## 1/5 README에서 확인한 핵심 목표
+
+${asSentence(channelDescription(summary))}
+
+## 2/5 공개할 때 정리한 기준
+
+기능 목록만 나열하지 않고, 공개된 사용 흐름과 현재 한계를 함께 확인할 수 있도록 정리했습니다.
+
+## 3/5 해결 방식
+
+${bulletList(features.slice(0, 3))}
+
+## 4/5 실제 확인
+
+${summary.demoUrl ? `로그인 없이 공개 데모를 확인할 수 있습니다: ${summary.demoUrl}` : `GitHub에서 설치와 실행 방법을 확인할 수 있습니다: ${summary.repositoryUrl}`}
+
+## 5/5 현재 단계와 피드백
+
+${bulletList(summary.limitations, "- README의 요구사항과 현재 한계를 게시 전에 다시 확인하세요.")}
+
+가장 먼저 막히는 부분이나 더 보고 싶은 사용 흐름을 알려주세요.
+
+${link}
+`;
+}
+
+function renderRedditDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  const link = summary.demoUrl || summary.repositoryUrl;
+  return `# Reddit 수동 게시 초안
+
+상태: \`대상 서브레딧과 규칙 확인 전 게시 금지\`
+
+- 대상 서브레딧: \`[게시 전 직접 선택]\`
+- [ ] 자기홍보 허용 여부 확인
+- [ ] 계정 연령·Karma·참여 이력 조건 확인
+- [ ] 제목 형식·플레어·링크 규칙 확인
+- [ ] 다른 서브레딧에 동일 본문 반복 게시하지 않음
+
+## 제목
+
+I built ${summary.name} — looking for feedback on the first-use experience
+
+## 본문
+
+개발자 본인이 만든 프로젝트를 공유합니다. ${asSentence(channelDescription(summary))}
+
+현재 구현에서 확인할 수 있는 기능:
+
+${bulletList(features.slice(0, 4))}
+
+${summary.demoUrl ? `직접 체험: ${summary.demoUrl}\n\n` : ""}소스: ${summary.repositoryUrl}
+
+라이선스: ${summary.license}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 제한 사항을 다시 확인해야 합니다.")}
+
+이 프로젝트를 실제 작업에 적용한다면 어떤 부분이 가장 먼저 막힐지 구체적인 피드백을 받고 싶습니다.
+
+> 영어권 서브레딧에 게시할 경우 본문 전체를 작성자 본인의 영어로 다시 검토하세요. 업보트·Star를 요청하지 마세요.
+
+대표 링크: ${link}
+`;
+}
+
+function renderLinkedInDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  return `# LinkedIn 게시물 초안
+
+${summary.name}를 만들면서 해결하려고 했던 문제는 단순했습니다.
+
+${asSentence(channelDescription(summary))}
+
+이번 공개 버전에서는 다음 흐름을 확인할 수 있습니다.
+
+${bulletList(features.slice(0, 3))}
+
+기술 구성: ${summary.technologies.slice(0, 6).join(" · ") || "원본 README 참조"}
+
+누구에게 유용한가:
+
+${bulletList(summary.audiences)}
+
+${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n` : ""}GitHub: ${summary.repositoryUrl}
+라이선스: ${summary.license}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 한계를 확인해 주세요.")}
+
+비슷한 문제를 해결해 본 분들의 구현 경험과 협업 피드백을 듣고 싶습니다.
+`;
+}
+
+function renderDisquietDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  return `# Disquiet 제품 등록·연결 포스트 초안
+
+> 현재 Disquiet은 본인이 만든 제품을 먼저 등록하고 검토받은 뒤, 제품에 연결된 포스트를 작성하는 구조입니다.
+
+## 제품 등록 정보
+
+- 제품명: ${summary.name}
+- 한 줄 소개: ${channelDescription(summary)}
+- 제품 링크: ${summary.demoUrl || summary.repositoryUrl}
+- GitHub: ${summary.repositoryUrl}
+- 라이선스: ${summary.license}
+- 대표 이미지: 실제 제품 화면 1장 첨부
+
+## 주요 기능
+
+${bulletList(features.slice(0, 4))}
+
+## 제품 연결 포스트
+
+${summary.name}를 공개합니다.
+
+${asSentence(channelDescription(summary))}
+
+이 소개에서는 기능 목록보다 실제 사용자가 핵심 흐름과 현재 한계를 함께 이해할 수 있도록 정리했습니다.
+
+현재 확인할 수 있는 범위:
+
+${bulletList(features.slice(0, 3))}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 한계를 확인해 주세요.")}
+
+직접 사용했을 때 이해하기 어려운 지점이나 다음에 보고 싶은 기능을 알려주세요.
+
+> 제품 등록·검토가 끝난 뒤 이 포스트를 제품에 연결하세요. 일반 메이커 로그로 단독 게시하지 않습니다.
+`;
+}
+
+function renderShortsDraft(summary) {
+  return `# YouTube Shorts 게시 준비 초안
+
+상태: \`실제 세로 영상 제작·검수 후 게시\`
+
+- 권장 규격: 1080×1920, H.264, 15~30초
+- 화면: 실제 제품 화면만 사용
+- 시청 조건: 무음으로도 이해되는 자막
+- 음악: 저작권이 확인된 음원 또는 무음
+
+## 20초 샷리스트
+
+| 구간 | 화면 | 자막 |
+|---|---|---|
+| 0~3초 | 대표 화면 전체 | ${summary.name}, 20초 안에 핵심 화면을 확인해 보세요 |
+| 3~7초 | 핵심 그래프·결과 확대 | ${cleanChannelItems(summary.features)[0] || channelDescription(summary)} |
+| 7~12초 | 탐색·필터·근거 영역 | ${cleanChannelItems(summary.features)[1] || "문서와 관계를 한 화면에서 탐색"} |
+| 12~16초 | 구현 또는 근거 화면 | ${summary.technologies.slice(0, 3).join(" · ") || "실제 저장소 기반 구현"} |
+| 16~20초 | 대표 화면 + 링크 안내 | ${summary.name} · 데모와 GitHub에서 확인하세요 |
+
+## 제목
+
+${summary.name} 실제 화면 20초 데모
+
+## 설명
+
+${asSentence(channelDescription(summary))}
+
+${summary.demoUrl ? `데모: ${summary.demoUrl}\n` : ""}GitHub: ${summary.repositoryUrl}
+라이선스: ${summary.license}
+
+## 게시 전 확인
+
+- [ ] 화면의 개인정보·token·로컬 경로 제거
+- [ ] 자막이 모바일 안전 영역 안에 있음
+- [ ] 데모와 GitHub 링크가 열림
+- [ ] 사용한 음악·이미지·폰트 권리 확인
+`;
+}
+
+function renderShowHnDraft(summary) {
+  const technologies = summary.technologies.slice(0, 5).join(", ") || "the technologies listed in the repository";
+  const titleSuffix = summary.demoUrl ? "an open-source project with a live demo" : "an open-source project";
+  return `# Show HN human-review draft
+
+Status: \`HOLD — publish only after earlier channel feedback is incorporated\`
+
+## Title
+
+Show HN: ${summary.name} – ${titleSuffix}
+
+## Submission URL
+
+${summary.demoUrl || summary.repositoryUrl}
+
+## Author context draft
+
+I built ${summary.name}. The repository currently describes it as: ${channelDescription(summary)}
+
+The current implementation uses ${technologies}.
+
+What you can try:
+
+${bulletList(cleanChannelItems(summary.features).slice(0, 4))}
+
+Current limitations:
+
+${bulletList(summary.limitations, "- Review the repository requirements and known limitations before posting.")}
+
+Source: ${summary.repositoryUrl}
+License: ${summary.license}
+
+I would especially appreciate feedback on the first confusing step in the demo and whether the relationship evidence is clear enough.
+
+## Before posting
+
+- [ ] Rewrite the title and context in the author's own English
+- [ ] Confirm the demo works without signup or email
+- [ ] Incorporate feedback from earlier channels
+- [ ] Be available to answer technical questions after submission
+- [ ] Do not ask anyone to upvote or comment
+- [ ] Do not generate or automate HN comments
+`;
 }
 
 function feedbackCta(summary) {
@@ -221,14 +476,29 @@ export function renderContentPack(summary) {
   const cta = feedbackCta(summary);
   const description = channelDescription(summary);
   const representativeLink = summary.demoUrl || summary.repositoryUrl;
+  const xVariants = renderXVariants(summary);
+  const geeknews = `# GeekNews Show 게시 초안\n\n등록 구분: \`Show\`\n\n대표 링크: ${representativeLink}\n\n## 제목\n\n${summary.name} – ${description}\n\n## 본문\n\n${summary.name}를 소개합니다. ${asSentence(description)}\n\nREADME에서 확인한 주요 기능은 다음과 같습니다.\n\n${featureLines}\n\n${summary.demoUrl ? `공개 데모는 로그인 없이 먼저 확인할 수 있습니다.\n\n- 공개 데모: ${summary.demoUrl}\n` : ""}- GitHub: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n\n## 현재 확인할 점\n\n${limitations}\n\n직접 사용해 보셨을 때 막히는 부분이나 가장 먼저 필요한 정보가 무엇인지 의견을 듣고 싶습니다.\n`;
+  const dev = `# ${summary.name} DEV 기술 글 작업본\n\n> 이 글은 GitHub README와 저장소 메타데이터에서 확인한 사실로 만든 작업본입니다. 실제 설계 과정과 실행 예제를 직접 보강하기 전에는 게시하지 마세요.\n\n## 해결하려는 문제\n\n${asSentence(description)}\n\nREADME 내용을 기준으로 다음 개발자와 팀이 검토할 수 있는 프로젝트입니다.\n\n${audienceLines}\n\n## 접근 방식\n\n저장소가 공개한 핵심 기능은 다음과 같습니다.\n\n${featureLines}\n\n각 기능을 구현하면서 선택한 이유와 검토한 대안을 실제 경험으로 보강하세요.\n\n## 구현 구성\n\n저장소 메타데이터와 패키지 정보에서 확인한 기술 구성입니다.\n\n${technologyLines}\n\n구성 요소의 연결, 핵심 데이터 흐름, 실패 처리와 트레이드오프를 실제 코드 기준으로 보강하세요.\n\n## 직접 실행하기\n\n${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}\n\n설치와 로컬 실행 명령은 원본 README에서 최신 내용을 확인하세요: ${summary.evidence.readme}\n\n## 현재 한계\n\n${limitations}\n\n## 소스와 라이선스\n\n- 저장소: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n- 기본 브랜치: ${summary.defaultBranch}\n\n## 게시 전 보강할 내용\n\n- [ ] 이 프로젝트를 만들게 된 실제 계기\n- [ ] 핵심 구현을 보여주는 코드 또는 명령 예제\n- [ ] 선택하지 않은 대안과 현재 설계의 트레이드오프\n- [ ] 직접 실행해 확인한 결과와 알려진 실패 사례\n\n## 피드백\n\n${cta}\n`;
 
   const files = {
     "project-summary.json": `${JSON.stringify(summary, null, 2)}\n`,
     "project-summary.md": `# ${summary.name}\n\n${summary.description}\n\n## 대상 사용자\n\n${audienceLines}\n\n## 핵심 기능\n\n${featureLines}\n\n## 기술\n\n${technologyLines}\n\n## 링크\n\n- GitHub: ${summary.repositoryUrl}\n${demoLine}\n- 라이선스: ${summary.license}\n\n## 확인할 한계\n\n${limitations}\n\n## 근거\n\n- README: ${summary.evidence.readme}\n`,
     "viral-hooks.md": `# ${summary.name} 콘텐츠 Hook\n\n${summary.hooks.map((hook, index) => `${index + 1}. ${hook}`).join("\n")}\n`,
-    "short-post.md": renderXPost(summary),
-    "community-post.md": `# GeekNews Show 게시 초안\n\n등록 구분: \`Show\`\n\n대표 링크: ${representativeLink}\n\n## 제목\n\n${summary.name} – ${description}\n\n## 본문\n\n${summary.name}를 소개합니다. ${asSentence(description)}\n\nREADME에서 확인한 주요 기능은 다음과 같습니다.\n\n${featureLines}\n\n${summary.demoUrl ? `공개 데모는 로그인 없이 먼저 확인할 수 있습니다.\n\n- 공개 데모: ${summary.demoUrl}\n` : ""}- GitHub: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n\n## 현재 확인할 점\n\n${limitations}\n\n직접 사용해 보셨을 때 막히는 부분이나 가장 먼저 필요한 정보가 무엇인지 의견을 듣고 싶습니다.\n`,
-    "long-post.md": `# ${summary.name} DEV 기술 글 초안\n\n> 이 글은 GitHub README와 저장소 메타데이터에서 확인한 사실로 만든 기술 초안입니다. DEV 게시 전 실제 설계 과정과 실행 예제를 직접 보강하세요.\n\n## 해결하려는 문제\n\n${asSentence(description)}\n\nREADME 내용을 기준으로 다음 개발자와 팀이 검토할 수 있는 프로젝트입니다.\n\n${audienceLines}\n\n## 접근 방식\n\n저장소가 공개한 핵심 기능은 다음과 같습니다.\n\n${featureLines}\n\n각 기능을 실제로 구현하면서 선택한 이유와 대안을 게시 전에 이 섹션에 추가하면, 링크 소개가 아니라 독립적인 기술 글이 됩니다.\n\n## 구현 구성\n\n저장소 메타데이터와 패키지 정보에서 확인한 기술 구성입니다.\n\n${technologyLines}\n\n구성 요소가 서로 어떻게 연결되는지, 핵심 데이터 흐름과 트레이드오프를 실제 코드 기준으로 보강하세요.\n\n## 직접 실행하기\n\n${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}\n\n설치와 로컬 실행 명령은 원본 README에서 최신 내용을 확인하세요: ${summary.evidence.readme}\n\n## 현재 한계\n\n${limitations}\n\n## 소스와 라이선스\n\n- 저장소: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n- 기본 브랜치: ${summary.defaultBranch}\n\n## 게시 전 보강할 내용\n\n- [ ] 이 프로젝트를 만들게 된 실제 계기\n- [ ] 핵심 구현을 보여주는 코드 또는 명령 예제\n- [ ] 선택하지 않은 대안과 현재 설계의 트레이드오프\n- [ ] 직접 실행해 확인한 결과와 알려진 실패 사례\n\n## 피드백\n\n${cta}\n`,
+    "x-single-1.md": xVariants[0],
+    "x-single-2.md": xVariants[1],
+    "x-single-3.md": xVariants[2],
+    "x-thread.md": renderXThread(summary),
+    "threads-series.md": renderThreadsSeries(summary),
+    "reddit-post.md": renderRedditDraft(summary),
+    "linkedin-post.md": renderLinkedInDraft(summary),
+    "disquiet-product.md": renderDisquietDraft(summary),
+    "geeknews-show.md": geeknews,
+    "dev-article.md": dev,
+    "youtube-shorts.md": renderShortsDraft(summary),
+    "show-hn.md": renderShowHnDraft(summary),
+    "short-post.md": xVariants[0],
+    "community-post.md": geeknews,
+    "long-post.md": dev,
   };
   assertNoHype(files);
   return files;

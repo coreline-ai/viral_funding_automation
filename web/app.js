@@ -1,27 +1,82 @@
 import { countXWeightedCharacters } from "/x-text.mjs";
 
 const DRAFT_CONFIG = {
-  short: {
-    label: "X 단일 게시물 원고",
-    filename: "short-post.md",
-    evidence: "X · 280 WEIGHTED",
-    help: "일반 X 게시물 기준으로 계산합니다. 한글·emoji는 대부분 2자, URL은 23자로 반영됩니다.",
+  x1: {
+    label: "X 단일 게시물 1안",
+    filename: "x-single-1.md",
+    evidence: "X · SINGLE · 280 WEIGHTED",
+    help: "프로젝트 한 줄 설명 중심의 1안입니다. 한글·emoji·URL을 X 가중 기준으로 확인합니다.",
   },
-  community: {
+  x2: {
+    label: "X 단일 게시물 2안",
+    filename: "x-single-2.md",
+    evidence: "X · FEATURE · 280 WEIGHTED",
+    help: "대표 기능 중심의 2안입니다. 실제 화면 이미지와 함께 쓰기 전에 문구를 확인하세요.",
+  },
+  x3: {
+    label: "X 단일 게시물 3안",
+    filename: "x-single-3.md",
+    evidence: "X · AUDIENCE · 280 WEIGHTED",
+    help: "대상 사용자와 기술 구성을 강조한 3안입니다. 1·2안과 동시에 게시하지 마세요.",
+  },
+  xThread: {
+    label: "X 스레드 1안",
+    filename: "x-thread.md",
+    evidence: "X · THREAD · SEGMENT CHECK",
+    help: "--- 구분선마다 별도 게시물입니다. 각 구간의 X 가중 길이를 검사합니다.",
+  },
+  threads: {
+    label: "Threads Build in Public 연속 게시",
+    filename: "threads-series.md",
+    evidence: "THREADS · BUILD IN PUBLIC",
+    help: "문제·불편·해결·실행·피드백 흐름입니다. 실제 대표 이미지를 첫 게시물에 첨부하세요.",
+  },
+  reddit: {
+    label: "Reddit 제목·본문 작업본",
+    filename: "reddit-post.md",
+    evidence: "REDDIT · SUBREDDIT GATE",
+    help: "대상 서브레딧, 계정 조건, 플레어와 자기홍보 규칙을 직접 확인하기 전에는 게시하지 마세요.",
+  },
+  linkedin: {
+    label: "LinkedIn 게시물 작업본",
+    filename: "linkedin-post.md",
+    evidence: "LINKEDIN · PROFESSIONAL STORY",
+    help: "만든 이유와 기술적 해결, 대상 사용자, 협업 피드백을 중심으로 최종 말투를 다듬으세요.",
+  },
+  disquiet: {
+    label: "Disquiet 제품 등록·연결 포스트",
+    filename: "disquiet-product.md",
+    evidence: "DISQUIET · PRODUCT FIRST",
+    help: "제품을 먼저 등록·검토받은 뒤 제품에 연결된 포스트로 사용합니다.",
+  },
+  geeknews: {
     label: "GeekNews Show 원고",
-    filename: "community-post.md",
-    evidence: "SHOW · HUMAN REVIEW",
+    filename: "geeknews-show.md",
+    evidence: "GEEKNEWS · SHOW · HUMAN REVIEW",
     help: "Show 분류, 계정 가입 1주, 중복 등록, 실제 말투 검토는 아래 체크리스트에서 확인합니다.",
   },
-  long: {
-    label: "DEV 기술 글 초안",
-    filename: "long-post.md",
-    evidence: "DEV · SUBSTANTIAL CONTENT",
-    help: "DEV 게시 전 실제 제작 계기, 코드·명령 예제, 설계 트레이드오프를 직접 보강해야 합니다.",
+  dev: {
+    label: "DEV 기술 글 작업본",
+    filename: "dev-article.md",
+    evidence: "DEV · SUBSTANTIAL CONTENT GATE",
+    help: "실제 제작 계기, 코드·명령 예제, 설계 트레이드오프와 실패 사례를 직접 보강해야 합니다.",
+  },
+  shorts: {
+    label: "YouTube Shorts 게시 준비",
+    filename: "youtube-shorts.md",
+    evidence: "SHORTS · 1080×1920 · ASSET GATE",
+    help: "샷리스트 작업본입니다. 실제 세로 영상의 규격·권리·개인정보를 검수한 뒤 게시하세요.",
+  },
+  showHn: {
+    label: "Show HN 사람 검토 작업본",
+    filename: "show-hn.md",
+    evidence: "SHOW HN · HOLD · AUTHOR REVIEW",
+    help: "앞선 채널 피드백을 반영하고 작성자 본인의 영어로 다시 쓴 뒤에만 제출하세요.",
   },
 };
 
 const DRAFT_KEYS = Object.keys(DRAFT_CONFIG);
+const X_SINGLE_KEYS = new Set(["x1", "x2", "x3"]);
 const PREFLIGHT_CONFIG = {
   accountReady: "GeekNews 가입 후 일주일 경과 확인",
   rulesReviewed: "공식 이용법과 반복 등록 금지 규칙 확인",
@@ -32,7 +87,7 @@ const PREFLIGHT_CONFIG = {
 const PREFLIGHT_KEYS = Object.keys(PREFLIGHT_CONFIG);
 const EXAMPLE_REPOSITORY_URL = "https://github.com/coreline-ai/memory_node_graph";
 const STORAGE_KEY = "coreline-launch:workspace:v1";
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const EXAMPLE_BUTTON_LABEL = "memory_node_graph 예제로 1턴 실행";
 
 const elements = {
@@ -90,12 +145,12 @@ function createDefaultPreflight() {
 
 const state = {
   phase: "idle",
-  activeDraft: "short",
+  activeDraft: "x1",
   repository: null,
   facts: null,
   summary: null,
-  drafts: { short: "", community: "", long: "" },
-  initialDrafts: { short: "", community: "", long: "" },
+  drafts: Object.fromEntries(DRAFT_KEYS.map((key) => [key, ""])),
+  initialDrafts: Object.fromEntries(DRAFT_KEYS.map((key) => [key, ""])),
   baseline: null,
   preflight: createDefaultPreflight(),
   baselineLoading: false,
@@ -111,7 +166,7 @@ function countCharacters(value) {
 
 function renderDraftValidation() {
   const value = elements.editor.value;
-  if (state.activeDraft === "short") {
+  if (X_SINGLE_KEYS.has(state.activeDraft)) {
     const weightedLength = countXWeightedCharacters(value.trim());
     const valid = weightedLength <= 280;
     elements.characterCount.textContent = `${weightedLength.toLocaleString("ko-KR")} / 280 가중자`;
@@ -123,13 +178,34 @@ function renderDraftValidation() {
     return;
   }
 
-  elements.characterCount.textContent = `${countCharacters(value).toLocaleString("ko-KR")}자`;
-  if (state.activeDraft === "community") {
-    elements.verificationStatus.textContent = "GeekNews Show · 계정·중복·최종 말투 검토 필요";
-  } else {
-    elements.verificationStatus.textContent = "DEV 기술 글 · 실제 경험과 실행 예제 보강 필요";
+  if (state.activeDraft === "xThread") {
+    const segments = value.split(/\n\s*---\s*\n/u).map((segment) => segment.trim()).filter(Boolean);
+    const lengths = segments.map((segment) => countXWeightedCharacters(segment));
+    const maximum = lengths.length ? Math.max(...lengths) : 0;
+    const valid = segments.length > 0 && maximum <= 280;
+    elements.characterCount.textContent = `${maximum.toLocaleString("ko-KR")} / 280 최대`;
+    elements.verificationStatus.textContent = valid
+      ? `X 스레드 ${segments.length}개 구간 검사 통과`
+      : "X 스레드 구간 중 280 가중자 초과 또는 빈 원고";
+    elements.draftStatus.dataset.state = valid ? "ready" : "error";
+    elements.copyButton.disabled = state.phase !== "success" || !valid;
+    return;
   }
-  elements.draftStatus.dataset.state = "warning";
+
+  elements.characterCount.textContent = `${countCharacters(value).toLocaleString("ko-KR")}자`;
+  const validations = {
+    threads: ["Threads · 대표 이미지와 최종 말투 확인 필요", "ready"],
+    reddit: ["Reddit · 서브레딧과 계정·규칙 확인 전 게시 금지", "warning"],
+    linkedin: ["LinkedIn · 전문적 맥락과 최종 말투 확인 필요", "ready"],
+    disquiet: ["Disquiet · 제품 등록·검토 후 연결 포스트로 사용", "warning"],
+    geeknews: ["GeekNews Show · 계정·중복·최종 말투 검토 필요", "warning"],
+    dev: ["DEV · 실제 경험과 실행 예제 보강 전 게시 금지", "warning"],
+    shorts: ["YouTube Shorts · 실제 1080×1920 영상 검수 필요", "warning"],
+    showHn: ["Show HN · 앞선 피드백 반영과 작성자 영어 검토 전 보류", "warning"],
+  };
+  const [message, status] = validations[state.activeDraft] || ["수동 검토가 필요합니다.", "warning"];
+  elements.verificationStatus.textContent = message;
+  elements.draftStatus.dataset.state = status;
   elements.copyButton.disabled = state.phase !== "success";
 }
 
@@ -187,6 +263,37 @@ function isBaseline(value) {
 
 function isPreflight(value) {
   return isRecord(value) && PREFLIGHT_KEYS.every((key) => typeof value[key] === "boolean");
+}
+
+function migrateStoredWorkspace(value) {
+  if (!isRecord(value) || value.version !== 1) return value;
+  if (!isRecord(value.drafts) || !isRecord(value.initialDrafts)) return value;
+  if (!["short", "community", "long"].every((key) => typeof value.drafts[key] === "string")) return value;
+  if (!["short", "community", "long"].every((key) => typeof value.initialDrafts[key] === "string")) return value;
+
+  const mapDrafts = (drafts) => ({
+    x1: drafts.short,
+    x2: drafts.short,
+    x3: drafts.short,
+    xThread: "",
+    threads: "",
+    reddit: "",
+    linkedin: "",
+    disquiet: "",
+    geeknews: drafts.community,
+    dev: drafts.long,
+    shorts: "",
+    showHn: "",
+  });
+  const activeDraft = { short: "x1", community: "geeknews", long: "dev" }[value.activeDraft] || "x1";
+  return {
+    ...value,
+    version: STORAGE_VERSION,
+    drafts: mapDrafts(value.drafts),
+    initialDrafts: mapDrafts(value.initialDrafts),
+    activeDraft,
+    migratedFrom: 1,
+  };
 }
 
 function isStoredWorkspace(value) {
@@ -271,7 +378,7 @@ function restoreWorkspace() {
 
   let workspace;
   try {
-    workspace = JSON.parse(stored);
+    workspace = migrateStoredWorkspace(JSON.parse(stored));
   } catch {
     removeStoredWorkspace();
     return false;
@@ -299,7 +406,10 @@ function restoreWorkspace() {
   renderActiveDraft();
 
   const savedAt = new Date(workspace.savedAt).toLocaleString("ko-KR");
-  setFeedback(`이전 작업을 복원했습니다 (${savedAt}). 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.`, "restored");
+  const migrationNote = workspace.migratedFrom
+    ? " 기존 3종 원고를 이동했으며, 전체 채널 초안은 콘텐츠 생성을 다시 눌러 만드세요."
+    : " 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.";
+  setFeedback(`이전 작업을 복원했습니다 (${savedAt}).${migrationNote}`, "restored");
   return true;
 }
 
@@ -493,7 +603,7 @@ ${checklist}
 
 ## 최종 커뮤니티 원고
 
-${state.drafts.community.trim()}
+${state.drafts.geeknews.trim()}
 
 ## 게시 원칙
 
@@ -556,7 +666,7 @@ async function generateRepository(repoUrl) {
     state.initialDrafts = { ...payload.drafts };
     state.baseline = isBaseline(payload.baseline) ? { ...payload.baseline } : null;
     state.preflight = createDefaultPreflight();
-    state.activeDraft = "short";
+    state.activeDraft = "x1";
     state.dirty = false;
     state.persisted = false;
     renderRepository();
@@ -566,9 +676,9 @@ async function generateRepository(repoUrl) {
 
     const persisted = persistWorkspace();
     if (persisted) {
-      setFeedback("콘텐츠 3종을 생성하고 이 브라우저에 저장했습니다. 수정 후 복사하거나 내려받으세요.", "success");
+      setFeedback(`채널 원고 ${DRAFT_KEYS.length}종을 생성하고 이 브라우저에 저장했습니다. 상태를 확인한 뒤 필요한 원고만 사용하세요.`, "success");
     } else {
-      setFeedback("콘텐츠 3종을 생성했습니다. 브라우저 저장은 사용할 수 없어 새로고침 전에 내려받으세요.", "restored");
+      setFeedback(`채널 원고 ${DRAFT_KEYS.length}종을 생성했습니다. 브라우저 저장은 사용할 수 없어 새로고침 전에 내려받으세요.`, "restored");
     }
     elements.projectTitle.setAttribute("tabindex", "-1");
     elements.projectTitle.focus();
@@ -619,7 +729,7 @@ for (const tab of elements.tabs) {
 elements.editor.addEventListener("input", () => {
   state.drafts[state.activeDraft] = elements.editor.value;
   renderDraftValidation();
-  if (state.activeDraft === "community" && state.preflight.finalCopyReviewed) {
+  if (state.activeDraft === "geeknews" && state.preflight.finalCopyReviewed) {
     state.preflight.finalCopyReviewed = false;
     renderPreflight();
   }
@@ -647,7 +757,7 @@ elements.downloadButton.addEventListener("click", () => {
 elements.downloadAllButton.addEventListener("click", () => {
   const prefix = sanitizeFilename(state.repository?.name);
   triggerDownload(`${prefix}-viral-content-pack.md`, buildBundle());
-  showToast("콘텐츠 3종을 하나의 Markdown 파일로 저장했습니다.");
+  showToast(`채널 원고 ${DRAFT_KEYS.length}종을 하나의 Markdown 파일로 저장했습니다.`);
 });
 
 for (const checkbox of elements.preflightChecks) {

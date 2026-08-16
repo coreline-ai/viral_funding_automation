@@ -1,4 +1,6 @@
 const URL_PATTERN = /https?:\/\/[^\s]+/giu;
+const EMOJI_GRAPHEME = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u;
+const GRAPHEME_SEGMENTER = new Intl.Segmenter("en", { granularity: "grapheme" });
 
 function codePointWeight(character) {
   const codePoint = character.codePointAt(0);
@@ -13,33 +15,45 @@ function codePointWeight(character) {
   return 2;
 }
 
+function textWeight(value) {
+  let weightedLength = 0;
+  for (const { segment } of GRAPHEME_SEGMENTER.segment(value)) {
+    if (EMOJI_GRAPHEME.test(segment)) {
+      weightedLength += 2;
+      continue;
+    }
+    for (const character of segment) weightedLength += codePointWeight(character);
+  }
+  return weightedLength;
+}
+
 export function countXWeightedCharacters(value) {
-  const text = String(value ?? "");
+  const text = String(value ?? "").normalize("NFC");
   let weightedLength = 0;
   let cursor = 0;
 
   for (const match of text.matchAll(URL_PATTERN)) {
     const index = match.index ?? cursor;
-    for (const character of text.slice(cursor, index)) weightedLength += codePointWeight(character);
+    weightedLength += textWeight(text.slice(cursor, index));
     weightedLength += 23;
     cursor = index + match[0].length;
   }
-  for (const character of text.slice(cursor)) weightedLength += codePointWeight(character);
+  weightedLength += textWeight(text.slice(cursor));
   return weightedLength;
 }
 
 export function truncateXWeightedText(value, maximum) {
-  const text = String(value ?? "").trim();
+  const text = String(value ?? "").normalize("NFC").trim();
   if (countXWeightedCharacters(text) <= maximum) return text;
 
   const ellipsis = "…";
   const contentLimit = Math.max(0, maximum - countXWeightedCharacters(ellipsis));
   let result = "";
   let weightedLength = 0;
-  for (const character of text) {
-    const nextWeight = codePointWeight(character);
+  for (const { segment } of GRAPHEME_SEGMENTER.segment(text)) {
+    const nextWeight = textWeight(segment);
     if (weightedLength + nextWeight > contentLimit) break;
-    result += character;
+    result += segment;
     weightedLength += nextWeight;
   }
   return `${result.trimEnd()}${ellipsis}`;
