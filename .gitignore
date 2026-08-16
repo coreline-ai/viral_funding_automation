@@ -1,0 +1,16 @@
+.DS_Store
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.local
+
+# Private campaign and repository inventory artifacts
+artifacts/private/
+
+# Node.js outputs for the conditional Track B implementation
+node_modules/
+coverage/
+dist/
+
