@@ -3,7 +3,15 @@ import { join } from "node:path";
 
 const FEATURE_SECTION = /(핵심\s*특징|주요\s*기능|기능|features?|what it does)/i;
 const LIMIT_SECTION = /(요구사항|주의|한계|제약|requirements?|limitations?|caveats?)/i;
-const DEMO_HINT = /(live|demo|try|실시간|데모|체험|열기)/i;
+const DEMO_HINT = /(?:\b(?:live|demo|try)\b|실시간|데모|체험|열기)/i;
+const PACKAGE_REGISTRY_HOSTS = [
+  /(?:^|\.)npmjs\.(?:com|org)$/i,
+  /(?:^|\.)pypi\.org$/i,
+  /(?:^|\.)crates\.io$/i,
+  /(?:^|\.)rubygems\.org$/i,
+  /(?:^|\.)nuget\.org$/i,
+  /(?:^|\.)packagist\.org$/i,
+];
 const BANNED_HYPE = ["최고의", "혁신적인", "완벽한", "압도적인", "무조건"];
 
 function cleanMarkdown(value) {
@@ -63,6 +71,15 @@ function readSectionBullets(readme, sectionPattern, limit) {
   return results;
 }
 
+function isPackageRegistryUrl(value) {
+  try {
+    const hostname = new URL(value).hostname;
+    return PACKAGE_REGISTRY_HOSTS.some((pattern) => pattern.test(hostname));
+  } catch {
+    return false;
+  }
+}
+
 function findDemoUrl(repository, readme) {
   const badgeLinks = [...readme.matchAll(/\[!\[([^\]]*)\]\([^)]+\)\]\((https?:\/\/[^)\s]+)\)/g)]
     .map((match) => ({ label: cleanMarkdown(match[1]), url: match[2] }));
@@ -71,7 +88,10 @@ function findDemoUrl(repository, readme) {
   const links = [...badgeLinks, ...plainLinks];
   const explicit = links.find((link) => {
     const asset = /(?:img\.shields\.io|\.(?:svg|png|jpe?g|gif|webp)(?:\?|$))/i.test(link.url);
-    return DEMO_HINT.test(`${link.label} ${link.url}`) && !link.url.includes("github.com") && !asset;
+    return DEMO_HINT.test(`${link.label} ${link.url}`)
+      && !link.url.includes("github.com")
+      && !isPackageRegistryUrl(link.url)
+      && !asset;
   });
   return explicit?.url ?? repository.homepage ?? "";
 }
@@ -156,7 +176,9 @@ export function renderContentPack(summary) {
   const technologyLines = bulletList(summary.technologies);
   const audienceLines = bulletList(summary.audiences);
   const limitations = bulletList(summary.limitations, "- README의 요구사항과 제한 사항을 게시 전에 다시 확인하세요.");
-  const primaryFeature = summary.features[0] ?? summary.description;
+  const normalizedDescription = cleanMarkdown(summary.description).toLocaleLowerCase();
+  const primaryFeature = summary.features.find((feature) => cleanMarkdown(feature).toLocaleLowerCase() !== normalizedDescription) ?? "";
+  const primaryFeatureParagraph = primaryFeature ? `\n\n${primaryFeature}` : "";
   const demoLine = summary.demoUrl ? `- 공개 데모: ${summary.demoUrl}` : "- 공개 데모: 없음";
   const cta = feedbackCta(summary);
 
@@ -164,7 +186,7 @@ export function renderContentPack(summary) {
     "project-summary.json": `${JSON.stringify(summary, null, 2)}\n`,
     "project-summary.md": `# ${summary.name}\n\n${summary.description}\n\n## 대상 사용자\n\n${audienceLines}\n\n## 핵심 기능\n\n${featureLines}\n\n## 기술\n\n${technologyLines}\n\n## 링크\n\n- GitHub: ${summary.repositoryUrl}\n${demoLine}\n- 라이선스: ${summary.license}\n\n## 확인할 한계\n\n${limitations}\n\n## 근거\n\n- README: ${summary.evidence.readme}\n`,
     "viral-hooks.md": `# ${summary.name} 콘텐츠 Hook\n\n${summary.hooks.map((hook, index) => `${index + 1}. ${hook}`).join("\n")}\n`,
-    "short-post.md": `# 짧은 글\n\n${summary.name} — ${summary.description}\n\n${primaryFeature}\n\n${summary.demoUrl || summary.repositoryUrl}\n\n${cta}\n`,
+    "short-post.md": `# 짧은 글\n\n${summary.name} — ${summary.description}${primaryFeatureParagraph}\n\n${summary.demoUrl || summary.repositoryUrl}\n\n${cta}\n`,
     "community-post.md": `# 커뮤니티 글\n\n## 제목\n\n${summary.name} — ${summary.description}\n\n## 본문\n\n${summary.name}를 만들었습니다.\n\n${summary.description}\n\n주요 기능은 다음과 같습니다.\n\n${featureLines}\n\n${summary.demoUrl ? `설치 전에 공개 데모에서 먼저 확인할 수 있습니다.\n\n${summary.demoUrl}\n\n` : ""}소스와 사용 방법은 GitHub에서 확인할 수 있습니다.\n\n${summary.repositoryUrl}\n\n${cta}\n`,
     "long-post.md": `# ${summary.name} 소개\n\n## 프로젝트 소개\n\n${summary.description}\n\n## 누구를 위한 프로젝트인가\n\n${audienceLines}\n\n## 제공하는 기능\n\n${featureLines}\n\n## 기술 구성\n\n${technologyLines}\n\n## 직접 확인하기\n\n${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}\n\n라이선스: ${summary.license}\n\n## 확인할 점\n\n${limitations}\n\n## 피드백\n\n${cta}\n`,
   };
