@@ -17,6 +17,10 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /memory_node_graph 예제로 1턴 실행/);
   assert.match(html, /role="tablist"/);
   assert.equal((html.match(/role="tab"/g) ?? []).length, 3);
+  assert.match(html, />X</);
+  assert.match(html, />GeekNews Show</);
+  assert.match(html, />DEV 기술 글</);
+  assert.match(html, /Show HN은 현재 자동 생성하지 않습니다/);
   assert.match(html, /id="draft-editor"/);
   assert.match(html, /id="copy-button"/);
   assert.match(html, /id="download-button"/);
@@ -44,6 +48,10 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /restoreWorkspace/);
   assert.match(app, /baseline/);
   assert.match(app, /preflight/);
+  assert.match(app, /countXWeightedCharacters/);
+  assert.match(app, /280 가중자/);
+  assert.match(app, /X 형식 검사/);
+  assert.match(app, /DEV 기술 글/);
   assert.match(app, /이전 작업을 복원했습니다/);
   assert.doesNotMatch(app, /GITHUB_TOKEN|GH_TOKEN|Authorization/);
 });

@@ -14,9 +14,9 @@
 | `assets/README.md` | 이미지 출처·크기·무결성 정보 |
 | `generated/api-response.json` | 웹앱 `/api/generate` 원본 응답 |
 | `generated/project-summary.json` | 웹앱이 분석한 프로젝트 요약 |
-| `generated/short-post.md` | 생성된 짧은 글 |
-| `generated/community-post.md` | 생성된 커뮤니티 글 |
-| `generated/long-post.md` | 생성된 상세 소개 |
+| `generated/short-post.md` | 생성된 X 단일 게시물 원고 |
+| `generated/community-post.md` | 생성된 GeekNews Show 초안 |
+| `generated/long-post.md` | 생성된 DEV 기술 글 구조 초안 |
 | `final/geeknews-show.md` | 사실 대조 후 다듬은 첫 게시 최종 초안 |
 | `final/publish-checklist.md` | 실제 게시 직전 확인할 항목 |
 
@@ -28,3 +28,4 @@
 4. 자동 게시하지 않고 GeekNews의 `Show`에 직접 등록한다.
 5. 게시 URL과 시각을 기록하고 최소 72시간, 권장 7일 동안 다음 채널 게시를 보류한다.
 
+X 원고는 280 가중 문자 검사를 통과한 상태이며, DEV 원고는 실제 제작 계기·실행 예제·트레이드오프를 작성자가 채우기 전에는 게시하지 않는다. Show HN은 이 출시팩의 자동 생성 대상이 아니다.

@@ -1,18 +1,23 @@
+import { countXWeightedCharacters } from "/x-text.mjs";
+
 const DRAFT_CONFIG = {
   short: {
-    label: "짧은 소개 원고",
+    label: "X 단일 게시물 원고",
     filename: "short-post.md",
-    evidence: "README · PRIMARY FEATURE",
+    evidence: "X · 280 WEIGHTED",
+    help: "일반 X 게시물 기준으로 계산합니다. 한글·emoji는 대부분 2자, URL은 23자로 반영됩니다.",
   },
   community: {
-    label: "커뮤니티 원고",
+    label: "GeekNews Show 원고",
     filename: "community-post.md",
-    evidence: "README · VERIFIED FACTS",
+    evidence: "SHOW · HUMAN REVIEW",
+    help: "Show 분류, 계정 가입 1주, 중복 등록, 실제 말투 검토는 아래 체크리스트에서 확인합니다.",
   },
   long: {
-    label: "상세 소개 원고",
+    label: "DEV 기술 글 초안",
     filename: "long-post.md",
-    evidence: "README · FULL SUMMARY",
+    evidence: "DEV · SUBSTANTIAL CONTENT",
+    help: "DEV 게시 전 실제 제작 계기, 코드·명령 예제, 설계 트레이드오프를 직접 보강해야 합니다.",
   },
 };
 
@@ -60,6 +65,8 @@ const elements = {
   draftLabel: document.querySelector("#draft-label"),
   draftEvidence: document.querySelector("#draft-evidence"),
   editor: document.querySelector("#draft-editor"),
+  editorHelp: document.querySelector("#editor-help"),
+  draftStatus: document.querySelector("#draft-status"),
   verificationStatus: document.querySelector("#verification-status"),
   characterCount: document.querySelector("#character-count"),
   copyButton: document.querySelector("#copy-button"),
@@ -100,6 +107,30 @@ let toastTimer = 0;
 
 function countCharacters(value) {
   return Array.from(value).length;
+}
+
+function renderDraftValidation() {
+  const value = elements.editor.value;
+  if (state.activeDraft === "short") {
+    const weightedLength = countXWeightedCharacters(value.trim());
+    const valid = weightedLength <= 280;
+    elements.characterCount.textContent = `${weightedLength.toLocaleString("ko-KR")} / 280 가중자`;
+    elements.verificationStatus.textContent = valid
+      ? "X 형식 검사 통과 · 게시 전 문구 확인 필요"
+      : "X 280 가중자 초과 · 줄인 뒤 복사할 수 있습니다";
+    elements.draftStatus.dataset.state = valid ? "ready" : "error";
+    elements.copyButton.disabled = state.phase !== "success" || !valid;
+    return;
+  }
+
+  elements.characterCount.textContent = `${countCharacters(value).toLocaleString("ko-KR")}자`;
+  if (state.activeDraft === "community") {
+    elements.verificationStatus.textContent = "GeekNews Show · 계정·중복·최종 말투 검토 필요";
+  } else {
+    elements.verificationStatus.textContent = "DEV 기술 글 · 실제 경험과 실행 예제 보강 필요";
+  }
+  elements.draftStatus.dataset.state = "warning";
+  elements.copyButton.disabled = state.phase !== "success";
 }
 
 function setFeedback(message = "", tone = "neutral") {
@@ -303,15 +334,6 @@ function renderRepository() {
   setExternalLink(elements.repositoryLink, repository.url);
   setExternalLink(elements.demoLink, facts.demoUrl);
 
-  const verified = [
-    facts.hasReadme ? "README" : null,
-    facts.license && facts.license !== "UNKNOWN" ? "License" : null,
-    facts.demoUrl ? "Demo" : null,
-  ].filter(Boolean);
-  elements.verificationStatus.textContent = verified.length
-    ? `${verified.join(" · ")} 확인 완료`
-    : "확인 가능한 저장소 정보로 원고 생성";
-
   elements.railEmpty.hidden = true;
   elements.repositoryDetails.hidden = false;
   elements.welcomePanel.hidden = true;
@@ -373,7 +395,8 @@ function renderActiveDraft({ focus = false } = {}) {
   elements.editor.value = state.drafts[state.activeDraft];
   elements.draftLabel.textContent = config.label;
   elements.draftEvidence.textContent = config.evidence;
-  elements.characterCount.textContent = `${countCharacters(elements.editor.value).toLocaleString("ko-KR")}자`;
+  elements.editorHelp.textContent = config.help;
+  renderDraftValidation();
 
   for (const tab of elements.tabs) {
     const active = tab.dataset.draft === state.activeDraft;
@@ -595,7 +618,7 @@ for (const tab of elements.tabs) {
 
 elements.editor.addEventListener("input", () => {
   state.drafts[state.activeDraft] = elements.editor.value;
-  elements.characterCount.textContent = `${countCharacters(elements.editor.value).toLocaleString("ko-KR")}자`;
+  renderDraftValidation();
   if (state.activeDraft === "community" && state.preflight.finalCopyReviewed) {
     state.preflight.finalCopyReviewed = false;
     renderPreflight();

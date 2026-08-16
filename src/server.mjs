@@ -18,6 +18,7 @@ const STATIC_ROUTES = new Map([
   ["/favicon.svg", { file: "favicon.svg", type: "image/svg+xml; charset=utf-8" }],
   ["/styles.css", { file: "styles.css", type: "text/css; charset=utf-8" }],
   ["/app.js", { file: "app.js", type: "text/javascript; charset=utf-8" }],
+  ["/x-text.mjs", { file: "x-text.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
 ]);
 
 class HttpError extends Error {
@@ -171,7 +172,7 @@ async function buildBaselineResponse(repoUrl, options) {
 
 async function serveStatic(request, response, route, webRoot) {
   try {
-    const content = await readFile(join(webRoot, route.file));
+    const content = await readFile(join(route.root ?? webRoot, route.file));
     applySecurityHeaders(response);
     response.writeHead(200, { "Content-Type": route.type });
     if (request.method === "HEAD") response.end();

@@ -81,6 +81,10 @@ test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다",
 
     assert.equal((await fetch(`${origin}/styles.css`)).status, 200);
     assert.equal((await fetch(`${origin}/app.js`)).status, 200);
+    const xText = await fetch(`${origin}/x-text.mjs`);
+    assert.equal(xText.status, 200);
+    assert.match(xText.headers.get("content-type"), /^text\/javascript/);
+    assert.match(await xText.text(), /countXWeightedCharacters/);
     const favicon = await fetch(`${origin}/favicon.svg`);
     assert.equal(favicon.status, 200);
     assert.match(favicon.headers.get("content-type"), /^image\/svg\+xml/);

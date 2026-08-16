@@ -1,6 +1,8 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { countXWeightedCharacters, truncateXWeightedText } from "./x-text.mjs";
+
 const FEATURE_SECTION = /(핵심\s*특징|주요\s*기능|기능|features?|what it does)/i;
 const LIMIT_SECTION = /(요구사항|주의|한계|제약|requirements?|limitations?|caveats?)/i;
 const DEMO_HINT = /(?:\b(?:live|demo|try)\b|실시간|데모|체험|열기)/i;
@@ -160,6 +162,45 @@ function bulletList(values, emptyText = "- README에서 별도 항목을 찾지 
   return values.length ? values.map((value) => `- ${value}`).join("\n") : emptyText;
 }
 
+function channelDescription(summary) {
+  const original = cleanMarkdown(summary.description);
+  const name = cleanMarkdown(summary.name);
+  if (!name || original.length <= name.length) return original;
+
+  let value = original;
+  if (value.toLocaleLowerCase().startsWith(name.toLocaleLowerCase())) {
+    value = value.slice(name.length).replace(/^[\s:—–-]+/u, "");
+  }
+  if (value.toLocaleLowerCase().endsWith(name.toLocaleLowerCase())) {
+    const withoutName = value.slice(0, -name.length).replace(/[\s:—–-]+$/u, "");
+    value = withoutName ? `${withoutName} 프로젝트` : value;
+  }
+  return value || original;
+}
+
+function asSentence(value) {
+  const cleaned = cleanMarkdown(value);
+  if (/[.!?。]$/u.test(cleaned)) return cleaned;
+  if (/[가-힣]$/u.test(cleaned) && !/(다|요|니다)$/u.test(cleaned)) return `${cleaned}입니다.`;
+  return `${cleaned}.`;
+}
+
+function cleanChannelItems(values) {
+  return values.map((value) => cleanTitle(value)).filter(Boolean);
+}
+
+function renderXPost(summary) {
+  const link = summary.demoUrl || summary.repositoryUrl;
+  const suffix = `\n\n${link}`;
+  const textBudget = 240 - countXWeightedCharacters(suffix);
+  const originalDescription = cleanMarkdown(summary.description);
+  const headline = originalDescription.toLocaleLowerCase().startsWith(cleanMarkdown(summary.name).toLocaleLowerCase())
+    ? originalDescription
+    : `${summary.name} — ${channelDescription(summary)}`;
+  const text = truncateXWeightedText(headline, textBudget);
+  return `${text}${suffix}\n`;
+}
+
 function feedbackCta(summary) {
   return `${summary.name}를 사용해 보고, 막히거나 이해하기 어려운 부분을 GitHub Issue로 알려주세요.`;
 }
@@ -172,23 +213,22 @@ function assertNoHype(files) {
 }
 
 export function renderContentPack(summary) {
-  const featureLines = bulletList(summary.features);
+  const featureLines = bulletList(cleanChannelItems(summary.features));
   const technologyLines = bulletList(summary.technologies);
   const audienceLines = bulletList(summary.audiences);
   const limitations = bulletList(summary.limitations, "- README의 요구사항과 제한 사항을 게시 전에 다시 확인하세요.");
-  const normalizedDescription = cleanMarkdown(summary.description).toLocaleLowerCase();
-  const primaryFeature = summary.features.find((feature) => cleanMarkdown(feature).toLocaleLowerCase() !== normalizedDescription) ?? "";
-  const primaryFeatureParagraph = primaryFeature ? `\n\n${primaryFeature}` : "";
   const demoLine = summary.demoUrl ? `- 공개 데모: ${summary.demoUrl}` : "- 공개 데모: 없음";
   const cta = feedbackCta(summary);
+  const description = channelDescription(summary);
+  const representativeLink = summary.demoUrl || summary.repositoryUrl;
 
   const files = {
     "project-summary.json": `${JSON.stringify(summary, null, 2)}\n`,
     "project-summary.md": `# ${summary.name}\n\n${summary.description}\n\n## 대상 사용자\n\n${audienceLines}\n\n## 핵심 기능\n\n${featureLines}\n\n## 기술\n\n${technologyLines}\n\n## 링크\n\n- GitHub: ${summary.repositoryUrl}\n${demoLine}\n- 라이선스: ${summary.license}\n\n## 확인할 한계\n\n${limitations}\n\n## 근거\n\n- README: ${summary.evidence.readme}\n`,
     "viral-hooks.md": `# ${summary.name} 콘텐츠 Hook\n\n${summary.hooks.map((hook, index) => `${index + 1}. ${hook}`).join("\n")}\n`,
-    "short-post.md": `# 짧은 글\n\n${summary.name} — ${summary.description}${primaryFeatureParagraph}\n\n${summary.demoUrl || summary.repositoryUrl}\n\n${cta}\n`,
-    "community-post.md": `# 커뮤니티 글\n\n## 제목\n\n${summary.name} — ${summary.description}\n\n## 본문\n\n${summary.name}를 만들었습니다.\n\n${summary.description}\n\n주요 기능은 다음과 같습니다.\n\n${featureLines}\n\n${summary.demoUrl ? `설치 전에 공개 데모에서 먼저 확인할 수 있습니다.\n\n${summary.demoUrl}\n\n` : ""}소스와 사용 방법은 GitHub에서 확인할 수 있습니다.\n\n${summary.repositoryUrl}\n\n${cta}\n`,
-    "long-post.md": `# ${summary.name} 소개\n\n## 프로젝트 소개\n\n${summary.description}\n\n## 누구를 위한 프로젝트인가\n\n${audienceLines}\n\n## 제공하는 기능\n\n${featureLines}\n\n## 기술 구성\n\n${technologyLines}\n\n## 직접 확인하기\n\n${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}\n\n라이선스: ${summary.license}\n\n## 확인할 점\n\n${limitations}\n\n## 피드백\n\n${cta}\n`,
+    "short-post.md": renderXPost(summary),
+    "community-post.md": `# GeekNews Show 게시 초안\n\n등록 구분: \`Show\`\n\n대표 링크: ${representativeLink}\n\n## 제목\n\n${summary.name} – ${description}\n\n## 본문\n\n${summary.name}를 소개합니다. ${asSentence(description)}\n\nREADME에서 확인한 주요 기능은 다음과 같습니다.\n\n${featureLines}\n\n${summary.demoUrl ? `공개 데모는 로그인 없이 먼저 확인할 수 있습니다.\n\n- 공개 데모: ${summary.demoUrl}\n` : ""}- GitHub: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n\n## 현재 확인할 점\n\n${limitations}\n\n직접 사용해 보셨을 때 막히는 부분이나 가장 먼저 필요한 정보가 무엇인지 의견을 듣고 싶습니다.\n`,
+    "long-post.md": `# ${summary.name} DEV 기술 글 초안\n\n> 이 글은 GitHub README와 저장소 메타데이터에서 확인한 사실로 만든 기술 초안입니다. DEV 게시 전 실제 설계 과정과 실행 예제를 직접 보강하세요.\n\n## 해결하려는 문제\n\n${asSentence(description)}\n\nREADME 내용을 기준으로 다음 개발자와 팀이 검토할 수 있는 프로젝트입니다.\n\n${audienceLines}\n\n## 접근 방식\n\n저장소가 공개한 핵심 기능은 다음과 같습니다.\n\n${featureLines}\n\n각 기능을 실제로 구현하면서 선택한 이유와 대안을 게시 전에 이 섹션에 추가하면, 링크 소개가 아니라 독립적인 기술 글이 됩니다.\n\n## 구현 구성\n\n저장소 메타데이터와 패키지 정보에서 확인한 기술 구성입니다.\n\n${technologyLines}\n\n구성 요소가 서로 어떻게 연결되는지, 핵심 데이터 흐름과 트레이드오프를 실제 코드 기준으로 보강하세요.\n\n## 직접 실행하기\n\n${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}\n\n설치와 로컬 실행 명령은 원본 README에서 최신 내용을 확인하세요: ${summary.evidence.readme}\n\n## 현재 한계\n\n${limitations}\n\n## 소스와 라이선스\n\n- 저장소: ${summary.repositoryUrl}\n- 라이선스: ${summary.license}\n- 기본 브랜치: ${summary.defaultBranch}\n\n## 게시 전 보강할 내용\n\n- [ ] 이 프로젝트를 만들게 된 실제 계기\n- [ ] 핵심 구현을 보여주는 코드 또는 명령 예제\n- [ ] 선택하지 않은 대안과 현재 설계의 트레이드오프\n- [ ] 직접 실행해 확인한 결과와 알려진 실패 사례\n\n## 피드백\n\n${cta}\n`,
   };
   assertNoHype(files);
   return files;

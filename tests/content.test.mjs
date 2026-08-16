@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { parseArguments, run } from "../src/cli.mjs";
 import { buildProjectSummary, renderContentPack, writeContentPack } from "../src/content.mjs";
+import { countXWeightedCharacters } from "../src/x-text.mjs";
 
 const source = {
   input: {
@@ -125,9 +126,27 @@ test("요약과 바이럴 콘텐츠 3종을 포함한 6개 파일을 렌더링�
   ]);
   assert.doesNotThrow(() => JSON.parse(files["project-summary.json"]));
   assert.match(files["short-post.md"], /https:\/\/memory\.example/);
-  assert.match(files["community-post.md"], /GitHub/);
+  assert.doesNotMatch(files["short-post.md"], /^#/);
+  assert.ok(countXWeightedCharacters(files["short-post.md"].trim()) <= 240);
+  assert.match(files["community-post.md"], /^# GeekNews Show 게시 초안/m);
+  assert.match(files["community-post.md"], /등록 구분: `Show`/);
+  assert.match(files["community-post.md"], /현재 확인할 점/);
+  assert.doesNotMatch(files["community-post.md"], /프로젝트\./);
+  assert.match(files["long-post.md"], /^# .*DEV 기술 글 초안/m);
+  assert.match(files["long-post.md"], /## 해결하려는 문제/);
+  assert.match(files["long-post.md"], /## 접근 방식/);
+  assert.match(files["long-post.md"], /## 직접 실행하기/);
+  assert.match(files["long-post.md"], /## 게시 전 보강할 내용/);
   assert.match(files["long-post.md"], /라이선스: MIT/);
   assert.ok(!Object.values(files).join("\n").includes("혁신적인"));
+});
+
+test("X 가중 문자는 CJK·emoji를 2자, URL을 23자로 계산한다", () => {
+  assert.equal(countXWeightedCharacters("abc"), 3);
+  assert.equal(countXWeightedCharacters("한글"), 4);
+  assert.equal(countXWeightedCharacters("🙂"), 2);
+  assert.equal(countXWeightedCharacters("https://example.com/very/long/path"), 23);
+  assert.equal(countXWeightedCharacters("한 A https://example.com"), 2 + 1 + 1 + 1 + 23);
 });
 
 test("생성 파일을 저장소 이름 디렉터리에 기록한다", async () => {
@@ -203,4 +222,5 @@ test("README가 없는 저장소도 사실 기반 기본 콘텐츠를 만든다"
   assert.equal(minimal.demoUrl, "");
   const files = renderContentPack(minimal);
   assert.equal(files["short-post.md"].split(minimal.description).length - 1, 1);
+  assert.ok(countXWeightedCharacters(files["short-post.md"].trim()) <= 240);
 });
