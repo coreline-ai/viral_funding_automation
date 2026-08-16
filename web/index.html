@@ -159,6 +159,61 @@
               </div>
             </footer>
           </div>
+
+          <section class="publish-preflight" id="publish-preflight" aria-labelledby="publish-preflight-title">
+            <header class="preflight-heading">
+              <div>
+                <p class="overline">GEEKNEWS SHOW · MANUAL PUBLISH</p>
+                <h3 id="publish-preflight-title">직접 게시 전 준비</h3>
+                <p>공개 GitHub 기준점과 수동 확인 항목을 마친 뒤 게시 준비 문서를 내려받습니다. 실제 등록은 자동화하지 않습니다.</p>
+              </div>
+              <nav class="preflight-links" aria-label="GeekNews 공식 링크">
+                <a href="https://news.hada.io/guidelines" target="_blank" rel="noreferrer">공식 이용법 <span aria-hidden="true">↗</span></a>
+                <a href="https://news.hada.io/show" target="_blank" rel="noreferrer">Show 목록 <span aria-hidden="true">↗</span></a>
+              </nav>
+            </header>
+
+            <div class="preflight-grid">
+              <section class="baseline-card" aria-labelledby="baseline-title">
+                <div class="preflight-card-heading">
+                  <div>
+                    <p class="section-label">PUBLIC BASELINE</p>
+                    <h4 id="baseline-title">GitHub 공개 기준점</h4>
+                  </div>
+                  <span class="mono" id="baseline-captured-at">아직 기록되지 않음</span>
+                </div>
+                <dl class="baseline-metrics">
+                  <div><dt>Star</dt><dd id="baseline-stars">—</dd></div>
+                  <div><dt>Fork</dt><dd id="baseline-forks">—</dd></div>
+                  <div><dt>Open Issue/PR</dt><dd id="baseline-open-issues">—</dd></div>
+                </dl>
+                <p class="baseline-note">GitHub Traffic은 관리자 전용 정보이므로 브라우저에 token을 넣지 않고 직접 캡처합니다.</p>
+                <button class="secondary-action" id="baseline-refresh-button" type="button">게시 직전 기준점 갱신</button>
+              </section>
+
+              <section class="checklist-card" aria-labelledby="checklist-title">
+                <div class="preflight-card-heading">
+                  <div>
+                    <p class="section-label">FINAL REVIEW</p>
+                    <h4 id="checklist-title">수동 확인 체크리스트</h4>
+                  </div>
+                  <span class="preflight-progress mono" id="preflight-progress">0 / 5</span>
+                </div>
+                <fieldset class="preflight-checklist" id="preflight-checklist">
+                  <legend class="sr-only">GeekNews Show 직접 게시 전 확인</legend>
+                  <label><input type="checkbox" data-preflight="accountReady"><span>GeekNews 가입 후 일주일 경과를 직접 확인했습니다.</span></label>
+                  <label><input type="checkbox" data-preflight="rulesReviewed"><span>공식 이용법과 반복 등록 금지 규칙을 읽었습니다.</span></label>
+                  <label><input type="checkbox" data-preflight="showCategory"><span>본인 프로젝트이므로 뉴스가 아닌 Show로 등록합니다.</span></label>
+                  <label><input type="checkbox" data-preflight="finalCopyReviewed"><span>커뮤니티 원고를 제 말투로 최종 검토했습니다.</span></label>
+                  <label><input type="checkbox" data-preflight="trafficCaptured"><span>게시 직전 GitHub Traffic 화면을 별도로 캡처했습니다.</span></label>
+                </fieldset>
+                <div class="preflight-actions">
+                  <p id="preflight-status" role="status" aria-live="polite">확인 항목 5개가 남았습니다.</p>
+                  <button class="accent-action" id="preflight-download-button" type="button" disabled>게시 준비 문서 내려받기</button>
+                </div>
+              </section>
+            </div>
+          </section>
         </section>
       </main>
     </div>

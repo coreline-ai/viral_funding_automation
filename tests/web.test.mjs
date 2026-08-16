@@ -21,6 +21,15 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /id="copy-button"/);
   assert.match(html, /id="download-button"/);
   assert.match(html, /id="download-all-button"/);
+  assert.match(html, /id="publish-preflight"/);
+  assert.match(html, /id="baseline-stars"/);
+  assert.match(html, /id="baseline-forks"/);
+  assert.match(html, /id="baseline-open-issues"/);
+  assert.match(html, /id="baseline-refresh-button"/);
+  assert.match(html, /id="preflight-download-button"/);
+  assert.equal((html.match(/data-preflight=/g) ?? []).length, 5);
+  assert.match(html, /https:\/\/news\.hada\.io\/guidelines/);
+  assert.match(html, /https:\/\/news\.hada\.io\/show/);
   assert.match(html, /aria-live="polite"/);
 });
 
@@ -33,6 +42,8 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /localStorage\.removeItem/);
   assert.match(app, /isStoredWorkspace/);
   assert.match(app, /restoreWorkspace/);
+  assert.match(app, /baseline/);
+  assert.match(app, /preflight/);
   assert.match(app, /이전 작업을 복원했습니다/);
   assert.doesNotMatch(app, /GITHUB_TOKEN|GH_TOKEN|Authorization/);
 });
@@ -81,8 +92,11 @@ test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를
   assert.match(app, /new Blob\(/);
   assert.match(app, /viral-content-pack\.md/);
   assert.match(app, /sanitizeFilename/);
+  assert.match(app, /\/api\/baseline/);
+  assert.match(app, /buildPreflightReport/);
+  assert.match(app, /게시 준비 문서/);
   assert.match(app, /beforeunload/);
   assert.match(app, /window\.confirm/);
   assert.match(app, /textContent/);
-  assert.doesNotMatch(app, /innerHTML|insertAdjacentHTML|document\.write/);
+  assert.doesNotMatch(app, /innerHTML|insertAdjacentHTML|document\.write|news\.hada\.io\/submit/);
 });

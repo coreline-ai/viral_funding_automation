@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   GitHubApiError,
+  fetchRepositoryBaseline,
   fetchRepositorySource,
   parseGitHubRepoUrl,
 } from "../src/github.mjs";
@@ -49,6 +50,9 @@ test("메타데이터, README, 라이선스, package.json을 GET으로 수집한
         default_branch: "main",
         private: false,
         license: null,
+        stargazers_count: 42,
+        forks_count: 7,
+        open_issues_count: 3,
       });
     }
     if (url.endsWith("/readme")) return textResponse("# Sample\n\n설명입니다.");
@@ -67,11 +71,60 @@ test("메타데이터, README, 라이선스, package.json을 GET으로 수집한
 
   assert.equal(source.repository.fullName, "coreline-ai/sample");
   assert.equal(source.repository.license, "MIT");
+  assert.equal(source.repository.stars, 42);
+  assert.equal(source.repository.forks, 7);
+  assert.equal(source.repository.openIssues, 3);
   assert.equal(source.readme, "# Sample\n\n설명입니다.");
   assert.equal(source.packageJson.dependencies.three, "^1.0.0");
   assert.equal(calls.length, 4);
   assert.ok(calls.every(({ options }) => options.method === undefined));
   assert.ok(calls.every(({ options }) => options.headers.Authorization === "Bearer test-token"));
+});
+
+test("게시 직전 공개 기준점은 repository metadata 한 번만 읽는다", async () => {
+  const calls = [];
+  const baseline = await fetchRepositoryBaseline("https://github.com/coreline-ai/sample", {
+    apiBase: "https://api.test",
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      return jsonResponse({
+        full_name: "coreline-ai/sample",
+        html_url: "https://github.com/coreline-ai/sample",
+        private: false,
+        stargazers_count: 42,
+        forks_count: 7,
+        open_issues_count: 3,
+      });
+    },
+    token: "test-token",
+  });
+
+  assert.deepEqual(baseline, {
+    repository: "coreline-ai/sample",
+    repositoryUrl: "https://github.com/coreline-ai/sample",
+    stars: 42,
+    forks: 7,
+    openIssues: 3,
+  });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/repos\/coreline-ai\/sample$/);
+  assert.equal(calls[0].options.headers.Authorization, "Bearer test-token");
+});
+
+test("누락되거나 잘못된 공개 기준점 수치는 0으로 정규화한다", async () => {
+  const baseline = await fetchRepositoryBaseline("https://github.com/acme/minimal", {
+    apiBase: "https://api.test",
+    fetchImpl: async () => jsonResponse({
+      full_name: "acme/minimal",
+      private: false,
+      stargazers_count: -1,
+      forks_count: "7",
+    }),
+  });
+
+  assert.equal(baseline.stars, 0);
+  assert.equal(baseline.forks, 0);
+  assert.equal(baseline.openIssues, 0);
 });
 
 test("선택 파일이 없어도 저장소 메타데이터를 반환한다", async () => {

@@ -17,6 +17,14 @@ const DRAFT_CONFIG = {
 };
 
 const DRAFT_KEYS = Object.keys(DRAFT_CONFIG);
+const PREFLIGHT_CONFIG = {
+  accountReady: "GeekNews 가입 후 일주일 경과 확인",
+  rulesReviewed: "공식 이용법과 반복 등록 금지 규칙 확인",
+  showCategory: "뉴스가 아닌 Show 등록 확인",
+  finalCopyReviewed: "커뮤니티 원고 최종 검토",
+  trafficCaptured: "게시 직전 GitHub Traffic 수동 캡처",
+};
+const PREFLIGHT_KEYS = Object.keys(PREFLIGHT_CONFIG);
 const EXAMPLE_REPOSITORY_URL = "https://github.com/coreline-ai/memory_node_graph";
 const STORAGE_KEY = "coreline-launch:workspace:v1";
 const STORAGE_VERSION = 1;
@@ -57,8 +65,21 @@ const elements = {
   copyButton: document.querySelector("#copy-button"),
   downloadButton: document.querySelector("#download-button"),
   downloadAllButton: document.querySelector("#download-all-button"),
+  baselineStars: document.querySelector("#baseline-stars"),
+  baselineForks: document.querySelector("#baseline-forks"),
+  baselineOpenIssues: document.querySelector("#baseline-open-issues"),
+  baselineCapturedAt: document.querySelector("#baseline-captured-at"),
+  baselineRefreshButton: document.querySelector("#baseline-refresh-button"),
+  preflightChecks: [...document.querySelectorAll("[data-preflight]")],
+  preflightProgress: document.querySelector("#preflight-progress"),
+  preflightStatus: document.querySelector("#preflight-status"),
+  preflightDownloadButton: document.querySelector("#preflight-download-button"),
   toast: document.querySelector("#toast"),
 };
+
+function createDefaultPreflight() {
+  return Object.fromEntries(PREFLIGHT_KEYS.map((key) => [key, false]));
+}
 
 const state = {
   phase: "idle",
@@ -68,6 +89,9 @@ const state = {
   summary: null,
   drafts: { short: "", community: "", long: "" },
   initialDrafts: { short: "", community: "", long: "" },
+  baseline: null,
+  preflight: createDefaultPreflight(),
+  baselineLoading: false,
   dirty: false,
   persisted: false,
 };
@@ -122,6 +146,18 @@ function isDraftCollection(value) {
   return isRecord(value) && DRAFT_KEYS.every((key) => typeof value[key] === "string");
 }
 
+function isBaseline(value) {
+  return isRecord(value)
+    && typeof value.capturedAt === "string"
+    && !Number.isNaN(Date.parse(value.capturedAt))
+    && [value.stars, value.forks, value.openIssues]
+      .every((count) => Number.isSafeInteger(count) && count >= 0);
+}
+
+function isPreflight(value) {
+  return isRecord(value) && PREFLIGHT_KEYS.every((key) => typeof value[key] === "boolean");
+}
+
 function isStoredWorkspace(value) {
   if (!isRecord(value) || value.version !== STORAGE_VERSION) return false;
   if (typeof value.repoUrl !== "string" || !safeHttpUrl(value.repoUrl)) return false;
@@ -168,6 +204,8 @@ function createWorkspaceSnapshot() {
     drafts: state.drafts,
     initialDrafts: state.initialDrafts,
     activeDraft: state.activeDraft,
+    baseline: state.baseline,
+    preflight: state.preflight,
   };
 }
 
@@ -218,6 +256,8 @@ function restoreWorkspace() {
   state.drafts = { ...workspace.drafts };
   state.initialDrafts = { ...workspace.initialDrafts };
   state.activeDraft = workspace.activeDraft;
+  state.baseline = isBaseline(workspace.baseline) ? { ...workspace.baseline } : null;
+  state.preflight = isPreflight(workspace.preflight) ? { ...workspace.preflight } : createDefaultPreflight();
   state.phase = "success";
   state.persisted = true;
   updateDirtyState();
@@ -276,6 +316,45 @@ function renderRepository() {
   elements.repositoryDetails.hidden = false;
   elements.welcomePanel.hidden = true;
   elements.resultWorkspace.hidden = false;
+  renderPreflight();
+}
+
+function formatCapturedAt(value) {
+  if (!value || Number.isNaN(Date.parse(value))) return "아직 기록되지 않음";
+  return new Date(value).toLocaleString("ko-KR");
+}
+
+function isPreflightReady() {
+  return Boolean(state.baseline) && PREFLIGHT_KEYS.every((key) => state.preflight[key]);
+}
+
+function renderPreflight() {
+  const baseline = state.baseline;
+  elements.baselineStars.textContent = baseline ? baseline.stars.toLocaleString("ko-KR") : "—";
+  elements.baselineForks.textContent = baseline ? baseline.forks.toLocaleString("ko-KR") : "—";
+  elements.baselineOpenIssues.textContent = baseline ? baseline.openIssues.toLocaleString("ko-KR") : "—";
+  elements.baselineCapturedAt.textContent = formatCapturedAt(baseline?.capturedAt);
+
+  for (const checkbox of elements.preflightChecks) {
+    checkbox.checked = Boolean(state.preflight[checkbox.dataset.preflight]);
+  }
+
+  const complete = PREFLIGHT_KEYS.filter((key) => state.preflight[key]).length;
+  const remaining = PREFLIGHT_KEYS.length - complete;
+  const ready = isPreflightReady();
+  elements.preflightProgress.textContent = `${complete} / ${PREFLIGHT_KEYS.length}`;
+  elements.preflightProgress.dataset.state = ready ? "ready" : "pending";
+  if (!baseline) {
+    elements.preflightStatus.textContent = "공개 GitHub 기준점을 먼저 기록하세요.";
+  } else if (ready) {
+    elements.preflightStatus.textContent = "직접 게시 전 준비가 완료됐습니다.";
+  } else {
+    elements.preflightStatus.textContent = `확인 항목 ${remaining}개가 남았습니다.`;
+  }
+
+  elements.baselineRefreshButton.disabled = state.baselineLoading || !state.repository;
+  elements.baselineRefreshButton.textContent = state.baselineLoading ? "기준점 확인 중" : "게시 직전 기준점 갱신";
+  elements.preflightDownloadButton.disabled = !ready;
 }
 
 function updateDirtyState() {
@@ -360,6 +439,47 @@ function buildBundle() {
   return `# ${state.summary.name} 바이럴 콘텐츠 패키지\n\n${sections.join("\n\n---\n\n")}\n`;
 }
 
+function buildPreflightReport() {
+  const checklist = PREFLIGHT_KEYS
+    .map((key) => `- [${state.preflight[key] ? "x" : " "}] ${PREFLIGHT_CONFIG[key]}`)
+    .join("\n");
+  const baseline = state.baseline;
+  return `# ${state.summary.name} GeekNews Show 게시 준비 문서
+
+생성 시각: ${new Date().toISOString()}
+
+## 게시 대상
+
+- 채널: GeekNews Show
+- 저장소: ${state.repository.url}
+- 공개 데모: ${state.facts.demoUrl || "없음"}
+- 공식 이용법: https://news.hada.io/guidelines
+- Show 목록: https://news.hada.io/show
+
+## 공개 GitHub 기준점
+
+- 수집 시각: ${baseline.capturedAt}
+- Star: ${baseline.stars}
+- Fork: ${baseline.forks}
+- Open Issue/PR: ${baseline.openIssues}
+- GitHub Traffic: 관리자 화면에서 별도 캡처
+
+## 직접 게시 전 확인
+
+${checklist}
+
+## 최종 커뮤니티 원고
+
+${state.drafts.community.trim()}
+
+## 게시 원칙
+
+- 실제 등록은 자동화하지 않는다.
+- 본인 또는 소속 조직 프로젝트는 뉴스가 아닌 Show로 등록한다.
+- 삭제·숨김·스팸 지적이 있으면 유사 글을 다시 등록하지 않는다.
+`;
+}
+
 async function requestGeneration(repoUrl) {
   const response = await fetch("/api/generate", {
     method: "POST",
@@ -379,6 +499,28 @@ async function requestGeneration(repoUrl) {
   return payload;
 }
 
+async function requestBaseline(repoUrl) {
+  const response = await fetch("/api/baseline", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repoUrl }),
+  });
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("기준점 응답을 읽지 못했습니다.");
+  }
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || "GitHub 기준점을 가져오지 못했습니다.");
+  }
+  if (!isBaseline(payload.baseline)) {
+    throw new Error("GitHub 기준점 형식을 확인할 수 없습니다.");
+  }
+  return payload;
+}
+
 async function generateRepository(repoUrl) {
   setLoading(true);
   setFeedback("GitHub 저장소와 README를 확인하고 있습니다.");
@@ -389,6 +531,8 @@ async function generateRepository(repoUrl) {
     state.summary = payload.summary;
     state.drafts = { ...payload.drafts };
     state.initialDrafts = { ...payload.drafts };
+    state.baseline = isBaseline(payload.baseline) ? { ...payload.baseline } : null;
+    state.preflight = createDefaultPreflight();
     state.activeDraft = "short";
     state.dirty = false;
     state.persisted = false;
@@ -452,6 +596,10 @@ for (const tab of elements.tabs) {
 elements.editor.addEventListener("input", () => {
   state.drafts[state.activeDraft] = elements.editor.value;
   elements.characterCount.textContent = `${countCharacters(elements.editor.value).toLocaleString("ko-KR")}자`;
+  if (state.activeDraft === "community" && state.preflight.finalCopyReviewed) {
+    state.preflight.finalCopyReviewed = false;
+    renderPreflight();
+  }
   updateDirtyState();
   persistWorkspace();
 });
@@ -477,6 +625,44 @@ elements.downloadAllButton.addEventListener("click", () => {
   const prefix = sanitizeFilename(state.repository?.name);
   triggerDownload(`${prefix}-viral-content-pack.md`, buildBundle());
   showToast("콘텐츠 3종을 하나의 Markdown 파일로 저장했습니다.");
+});
+
+for (const checkbox of elements.preflightChecks) {
+  checkbox.addEventListener("change", () => {
+    const key = checkbox.dataset.preflight;
+    if (!PREFLIGHT_CONFIG[key] || state.phase !== "success") return;
+    state.preflight[key] = checkbox.checked;
+    persistWorkspace();
+    renderPreflight();
+  });
+}
+
+elements.baselineRefreshButton.addEventListener("click", async () => {
+  if (!state.repository || state.baselineLoading) return;
+  state.baselineLoading = true;
+  renderPreflight();
+  try {
+    const payload = await requestBaseline(state.repository.url);
+    if (payload.repository?.fullName !== state.repository.fullName) {
+      throw new Error("현재 저장소와 기준점 저장소가 일치하지 않습니다.");
+    }
+    state.baseline = { ...payload.baseline };
+    state.preflight.trafficCaptured = false;
+    persistWorkspace();
+    showToast("게시 직전 GitHub 공개 기준점을 갱신했습니다.");
+  } catch (error) {
+    showToast(error.message || "GitHub 기준점을 갱신하지 못했습니다.", "error");
+  } finally {
+    state.baselineLoading = false;
+    renderPreflight();
+  }
+});
+
+elements.preflightDownloadButton.addEventListener("click", () => {
+  if (!isPreflightReady()) return;
+  const prefix = sanitizeFilename(state.repository?.name);
+  triggerDownload(`${prefix}-geeknews-show-preflight.md`, buildPreflightReport());
+  showToast("게시 준비 문서를 Markdown으로 저장했습니다.");
 });
 
 window.addEventListener("beforeunload", (event) => {

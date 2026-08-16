@@ -32,6 +32,9 @@ function githubFixtureFetch() {
         default_branch: "main",
         private: false,
         license: { spdx_id: "MIT" },
+        stargazers_count: 42,
+        forks_count: 7,
+        open_issues_count: 3,
       });
     }
     if (url.endsWith("/readme")) {
@@ -103,10 +106,50 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 콘텐츠 3종을 반환�
     assert.equal(payload.repository.language, "TypeScript");
     assert.equal(payload.facts.hasReadme, true);
     assert.equal(payload.facts.license, "MIT");
+    assert.equal(payload.baseline.stars, 42);
+    assert.equal(payload.baseline.forks, 7);
+    assert.equal(payload.baseline.openIssues, 3);
+    assert.ok(!Number.isNaN(Date.parse(payload.baseline.capturedAt)));
     assert.deepEqual(Object.keys(payload.drafts).sort(), ["community", "long", "short"]);
     assert.match(payload.drafts.short, /AI Systems Atlas/);
     assert.ok(!JSON.stringify(payload).includes("server-only-token"));
   });
+});
+
+test("게시 직전 기준점 API는 공개 repository metadata만 반환한다", async () => {
+  const calls = [];
+  await withServer({
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      return jsonResponse({
+        name: "memory_node_graph",
+        full_name: "coreline-ai/memory_node_graph",
+        html_url: "https://github.com/coreline-ai/memory_node_graph",
+        private: false,
+        stargazers_count: 42,
+        forks_count: 7,
+        open_issues_count: 3,
+      });
+    },
+    token: "server-only-token",
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/baseline`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repoUrl: "https://github.com/coreline-ai/memory_node_graph" }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.repository.fullName, "coreline-ai/memory_node_graph");
+    assert.equal(payload.baseline.stars, 42);
+    assert.equal(payload.baseline.forks, 7);
+    assert.equal(payload.baseline.openIssues, 3);
+    assert.ok(!Number.isNaN(Date.parse(payload.baseline.capturedAt)));
+    assert.ok(!JSON.stringify(payload).includes("server-only-token"));
+  });
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/repos\/coreline-ai\/memory_node_graph$/);
 });
 
 test("API 입력 경계와 method 오류를 안정적인 JSON으로 반환한다", async () => {

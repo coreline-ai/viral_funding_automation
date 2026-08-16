@@ -79,13 +79,11 @@ async function readOptionalJson(fetchImpl, url, options) {
   }
 }
 
-export async function fetchRepositorySource(repoUrl, options = {}) {
-  const parsed = parseGitHubRepoUrl(repoUrl);
-  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-  const apiBase = (options.apiBase ?? DEFAULT_API_BASE).replace(/\/$/, "");
-  const token = options.token;
-  if (typeof fetchImpl !== "function") throw new TypeError("fetch 구현이 필요합니다.");
+function publicCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
 
+async function readRepositoryMetadata(parsed, { fetchImpl, apiBase, token }) {
   const repoApi = `${apiBase}/repos/${parsed.owner}/${parsed.repo}`;
   const metadataResponse = await request(fetchImpl, repoApi, { token });
   const metadata = await metadataResponse.json();
@@ -93,6 +91,34 @@ export async function fetchRepositorySource(repoUrl, options = {}) {
     status: 400,
     url: repoApi,
   });
+  return { metadata, repoApi };
+}
+
+export async function fetchRepositoryBaseline(repoUrl, options = {}) {
+  const parsed = parseGitHubRepoUrl(repoUrl);
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const apiBase = (options.apiBase ?? DEFAULT_API_BASE).replace(/\/$/, "");
+  const token = options.token;
+  if (typeof fetchImpl !== "function") throw new TypeError("fetch 구현이 필요합니다.");
+
+  const { metadata } = await readRepositoryMetadata(parsed, { fetchImpl, apiBase, token });
+  return {
+    repository: metadata.full_name ?? parsed.fullName,
+    repositoryUrl: metadata.html_url ?? parsed.url,
+    stars: publicCount(metadata.stargazers_count),
+    forks: publicCount(metadata.forks_count),
+    openIssues: publicCount(metadata.open_issues_count),
+  };
+}
+
+export async function fetchRepositorySource(repoUrl, options = {}) {
+  const parsed = parseGitHubRepoUrl(repoUrl);
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const apiBase = (options.apiBase ?? DEFAULT_API_BASE).replace(/\/$/, "");
+  const token = options.token;
+  if (typeof fetchImpl !== "function") throw new TypeError("fetch 구현이 필요합니다.");
+
+  const { metadata, repoApi } = await readRepositoryMetadata(parsed, { fetchImpl, apiBase, token });
 
   const [readmeResponse, licenseResponse, packageJson] = await Promise.all([
     request(fetchImpl, `${repoApi}/readme`, {
@@ -123,6 +149,9 @@ export async function fetchRepositorySource(repoUrl, options = {}) {
       defaultBranch: metadata.default_branch ?? "main",
       readmeUrl: `${parsed.url}/blob/${metadata.default_branch ?? "main"}/README.md`,
       license: metadata.license?.spdx_id ?? licensePayload?.license?.spdx_id ?? "UNKNOWN",
+      stars: publicCount(metadata.stargazers_count),
+      forks: publicCount(metadata.forks_count),
+      openIssues: publicCount(metadata.open_issues_count),
     },
     readme,
     packageJson,

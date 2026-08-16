@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { buildProjectSummary, renderContentPack } from "./content.mjs";
-import { fetchRepositorySource, GitHubApiError } from "./github.mjs";
+import { fetchRepositoryBaseline, fetchRepositorySource, GitHubApiError } from "./github.mjs";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4310;
@@ -134,11 +134,37 @@ async function buildGenerationResponse(repoUrl, options) {
       audienceCount: summary.audiences.length,
       limitationCount: summary.limitations.length,
     },
+    baseline: {
+      capturedAt: new Date().toISOString(),
+      stars: source.repository.stars,
+      forks: source.repository.forks,
+      openIssues: source.repository.openIssues,
+    },
     summary,
     drafts: {
       short: files["short-post.md"],
       community: files["community-post.md"],
       long: files["long-post.md"],
+    },
+  };
+}
+
+async function buildBaselineResponse(repoUrl, options) {
+  if (typeof repoUrl !== "string" || repoUrl.trim().length === 0) {
+    throw new TypeError("repoUrl is required");
+  }
+  const result = await fetchRepositoryBaseline(repoUrl, options);
+  return {
+    repository: {
+      fullName: result.repository,
+      url: result.repositoryUrl,
+      visibility: "public",
+    },
+    baseline: {
+      capturedAt: new Date().toISOString(),
+      stars: result.stars,
+      forks: result.forks,
+      openIssues: result.openIssues,
     },
   };
 }
@@ -174,6 +200,20 @@ export function createAppServer(options = {}) {
         }
         const payload = await readJsonBody(request);
         const result = await buildGenerationResponse(payload.repoUrl, {
+          apiBase: options.apiBase,
+          fetchImpl,
+          token,
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/baseline") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        const payload = await readJsonBody(request);
+        const result = await buildBaselineResponse(payload.repoUrl, {
           apiBase: options.apiBase,
           fetchImpl,
           token,
