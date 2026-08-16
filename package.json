@@ -1,0 +1,14 @@
+{
+  "name": "viral-funding-automation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "generate": "node src/cli.mjs",
+    "web": "node src/server.mjs",
+    "test": "node --test"
+  }
+}

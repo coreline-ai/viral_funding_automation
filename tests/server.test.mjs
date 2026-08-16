@@ -1,0 +1,165 @@
+import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+
+import { createAppServer } from "../src/server.mjs";
+
+function jsonResponse(value, init = {}) {
+  return new Response(JSON.stringify(value), {
+    status: init.status ?? 200,
+    headers: { "content-type": "application/json", ...(init.headers ?? {}) },
+  });
+}
+
+function textResponse(value, init = {}) {
+  return new Response(value, { status: init.status ?? 200, headers: init.headers });
+}
+
+function githubFixtureFetch() {
+  return async (url, options = {}) => {
+    assert.equal(options.method, undefined);
+    if (url.endsWith("/repos/coreline-ai/memory_node_graph")) {
+      return jsonResponse({
+        name: "memory_node_graph",
+        full_name: "coreline-ai/memory_node_graph",
+        description: "Markdown 문서를 관계형 지식 그래프로 탐색하는 웹앱",
+        html_url: "https://github.com/coreline-ai/memory_node_graph",
+        homepage: "https://atlas.example",
+        language: "TypeScript",
+        topics: ["knowledge-graph"],
+        default_branch: "main",
+        private: false,
+        license: { spdx_id: "MIT" },
+      });
+    }
+    if (url.endsWith("/readme")) {
+      return textResponse("# AI Systems Atlas\n\n## 주요 기능\n\n- Markdown 지식 그래프\n\n## 요구사항\n\n- Node.js 22 이상\n");
+    }
+    if (url.endsWith("/license")) return textResponse("not found", { status: 404 });
+    if (url.endsWith("/contents/package.json")) {
+      return textResponse(JSON.stringify({ dependencies: { three: "^1.0.0" } }));
+    }
+    return textResponse("not found", { status: 404 });
+  };
+}
+
+async function withServer(options, callback) {
+  const webRoot = await mkdtemp(join(tmpdir(), "viral-web-root-"));
+  await Promise.all([
+    writeFile(join(webRoot, "index.html"), "<!doctype html><title>Coreline Launch</title>"),
+    writeFile(join(webRoot, "favicon.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"),
+    writeFile(join(webRoot, "styles.css"), ":root{color-scheme:dark}"),
+    writeFile(join(webRoot, "app.js"), "export {};"),
+  ]);
+  const server = createAppServer({ webRoot, ...options });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const origin = `http://127.0.0.1:${address.port}`;
+  try {
+    await callback(origin);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await rm(webRoot, { recursive: true, force: true });
+  }
+}
+
+test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다", async () => {
+  await withServer({}, async (origin) => {
+    const index = await fetch(`${origin}/`);
+    assert.equal(index.status, 200);
+    assert.match(await index.text(), /Coreline Launch/);
+    assert.match(index.headers.get("content-security-policy"), /img-src 'self'/);
+    assert.equal(index.headers.get("x-content-type-options"), "nosniff");
+
+    assert.equal((await fetch(`${origin}/styles.css`)).status, 200);
+    assert.equal((await fetch(`${origin}/app.js`)).status, 200);
+    const favicon = await fetch(`${origin}/favicon.svg`);
+    assert.equal(favicon.status, 200);
+    assert.match(favicon.headers.get("content-type"), /^image\/svg\+xml/);
+    assert.equal((await fetch(`${origin}/package.json`)).status, 404);
+    assert.equal((await fetch(`${origin}/%2e%2e/package.json`)).status, 404);
+
+    const method = await fetch(`${origin}/styles.css`, { method: "POST" });
+    assert.equal(method.status, 405);
+    assert.equal(method.headers.get("allow"), "GET, HEAD");
+  });
+});
+
+test("공개 GitHub URL을 분석해 GUI용 사실과 콘텐츠 3종을 반환한다", async () => {
+  await withServer({ fetchImpl: githubFixtureFetch(), token: "server-only-token" }, async (origin) => {
+    const response = await fetch(`${origin}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repoUrl: "https://github.com/coreline-ai/memory_node_graph" }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.repository.fullName, "coreline-ai/memory_node_graph");
+    assert.equal(payload.repository.language, "TypeScript");
+    assert.equal(payload.facts.hasReadme, true);
+    assert.equal(payload.facts.license, "MIT");
+    assert.deepEqual(Object.keys(payload.drafts).sort(), ["community", "long", "short"]);
+    assert.match(payload.drafts.short, /AI Systems Atlas/);
+    assert.ok(!JSON.stringify(payload).includes("server-only-token"));
+  });
+});
+
+test("API 입력 경계와 method 오류를 안정적인 JSON으로 반환한다", async () => {
+  await withServer({}, async (origin) => {
+    const getResponse = await fetch(`${origin}/api/generate`);
+    assert.equal(getResponse.status, 405);
+    assert.equal((await getResponse.json()).error.code, "METHOD_NOT_ALLOWED");
+
+    const contentType = await fetch(`${origin}/api/generate`, { method: "POST", body: "{}" });
+    assert.equal(contentType.status, 415);
+
+    const badJson = await fetch(`${origin}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{",
+    });
+    assert.equal(badJson.status, 400);
+    assert.equal((await badJson.json()).error.code, "INVALID_JSON");
+
+    const badUrl = await fetch(`${origin}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repoUrl: "https://example.com/a/b" }),
+    });
+    assert.equal(badUrl.status, 400);
+    assert.equal((await badUrl.json()).error.code, "INVALID_REPOSITORY_URL");
+
+    const tooLarge = await fetch(`${origin}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repoUrl: `https://github.com/a/${"b".repeat(9000)}` }),
+    });
+    assert.equal(tooLarge.status, 413);
+    assert.equal((await tooLarge.json()).error.code, "REQUEST_TOO_LARGE");
+  });
+});
+
+test("GitHub 404와 rate limit을 사용자용 오류로 변환한다", async () => {
+  const cases = [
+    { status: 404, headers: {}, expectedStatus: 404, expectedCode: "REPOSITORY_NOT_FOUND" },
+    { status: 403, headers: { "x-ratelimit-remaining": "0" }, expectedStatus: 429, expectedCode: "GITHUB_RATE_LIMIT" },
+  ];
+  for (const fixture of cases) {
+    await withServer({
+      fetchImpl: async () => textResponse("GitHub error", fixture),
+    }, async (origin) => {
+      const response = await fetch(`${origin}/api/generate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ repoUrl: "https://github.com/coreline-ai/missing" }),
+      });
+      assert.equal(response.status, fixture.expectedStatus);
+      assert.equal((await response.json()).error.code, fixture.expectedCode);
+    });
+  }
+});

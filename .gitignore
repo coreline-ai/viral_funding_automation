@@ -14,3 +14,5 @@ node_modules/
 coverage/
 dist/
 
+# Local browser QA session data
+.playwright-cli/

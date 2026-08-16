@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07090b">
+    <title>Coreline Launch</title>
+    <meta name="description" content="공개 GitHub 저장소에서 사실 기반 바이럴 콘텐츠 초안을 생성합니다.">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">콘텐츠 작업 영역으로 이동</a>
+
+    <div class="app-shell">
+      <aside class="evidence-rail" aria-labelledby="brand-title">
+        <header class="brand-lockup">
+          <p class="overline">GITHUB STORY · READ ONLY</p>
+          <h1 id="brand-title">Coreline Launch</h1>
+          <p>공개 저장소를 게시 가능한 원고로</p>
+        </header>
+
+        <section class="rail-empty" id="rail-empty">
+          <p class="section-label">저장소 확인</p>
+          <strong>첫 번째 프로젝트 원고를 만들어보세요.</strong>
+          <p>GitHub URL을 입력하거나 실제 예제로 한 번에 시작할 수 있습니다.</p>
+        </section>
+
+        <div class="repository-details" id="repository-details" hidden>
+          <section class="repository-identity" aria-labelledby="repository-name">
+            <p class="section-label">Repository</p>
+            <h2 id="repository-name">—</h2>
+            <p class="mono" id="repository-owner">—</p>
+          </section>
+
+          <section class="rail-section" aria-labelledby="verified-heading">
+            <div class="rail-heading">
+              <h3 id="verified-heading">저장소 확인</h3>
+              <span class="mono">VERIFIED</span>
+            </div>
+            <dl class="fact-list">
+              <div class="fact-row">
+                <dt>README</dt>
+                <dd><span class="signal signal-blue" aria-hidden="true"></span><span id="fact-readme">—</span></dd>
+              </div>
+              <div class="fact-row">
+                <dt>라이선스</dt>
+                <dd><span class="signal signal-mint" aria-hidden="true"></span><span id="fact-license">—</span></dd>
+              </div>
+              <div class="fact-row">
+                <dt>공개 데모</dt>
+                <dd><span class="signal signal-violet" aria-hidden="true"></span><span id="fact-demo">—</span></dd>
+              </div>
+              <div class="fact-row">
+                <dt>주 언어</dt>
+                <dd><span class="signal signal-blue" aria-hidden="true"></span><span id="fact-language">—</span></dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="rail-section" aria-labelledby="evidence-heading">
+            <div class="rail-heading">
+              <h3 id="evidence-heading">콘텐츠 근거</h3>
+              <span class="mono">SOURCE</span>
+            </div>
+            <dl class="count-list">
+              <div><dt>핵심 기능</dt><dd id="feature-count">0</dd></div>
+              <div><dt>대상 사용자</dt><dd id="audience-count">0</dd></div>
+              <div><dt>제한 사항</dt><dd id="limitation-count">0</dd></div>
+            </dl>
+          </section>
+
+          <nav class="source-links" aria-label="저장소 원문 링크">
+            <a id="repository-link" href="#" target="_blank" rel="noreferrer">GitHub 원문 열기 <span aria-hidden="true">↗</span></a>
+            <a id="demo-link" href="#" target="_blank" rel="noreferrer" hidden>공개 데모 열기 <span aria-hidden="true">↗</span></a>
+          </nav>
+        </div>
+
+        <footer class="rail-footer">
+          <span class="signal signal-mint" aria-hidden="true"></span>
+          원본 저장소를 수정하지 않습니다
+        </footer>
+      </aside>
+
+      <main class="workspace" id="workspace">
+        <section class="repository-command" aria-labelledby="command-label">
+          <form id="repository-form" novalidate>
+            <label class="command-label mono" id="command-label" for="repository-url">REPOSITORY</label>
+            <input
+              id="repository-url"
+              name="repository-url"
+              type="url"
+              inputmode="url"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="https://github.com/owner/repository"
+              required
+            >
+            <button class="primary-action" id="generate-button" type="submit">콘텐츠 생성</button>
+          </form>
+          <p class="command-feedback" id="command-feedback" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="welcome-panel" id="welcome-panel" aria-labelledby="welcome-title">
+          <div class="welcome-copy">
+            <p class="overline">PROJECT STORY · DRAFT WORKSPACE</p>
+            <h2 id="welcome-title">GitHub 프로젝트를<br>게시 가능한 이야기로</h2>
+            <p class="welcome-description">저장소에서 확인한 사실만 사용해 짧은 소개, 커뮤니티 글, 상세 소개 초안을 만듭니다.</p>
+            <div class="welcome-actions">
+              <button class="secondary-action" id="example-button" type="button">memory_node_graph 예제로 1턴 실행</button>
+              <span class="example-note">실제 공개 저장소를 분석합니다</span>
+            </div>
+          </div>
+
+          <ol class="workflow-steps" aria-label="콘텐츠 생성 과정">
+            <li><span class="mono">01</span><strong>저장소 입력</strong><p>공개 GitHub URL 하나를 입력합니다.</p></li>
+            <li><span class="mono">02</span><strong>사실 확인</strong><p>README·라이선스·데모를 확인합니다.</p></li>
+            <li><span class="mono">03</span><strong>원고 편집</strong><p>세 가지 초안을 수정하고 가져갑니다.</p></li>
+          </ol>
+        </section>
+
+        <section class="result-workspace" id="result-workspace" aria-labelledby="project-title" hidden>
+          <header class="project-heading">
+            <div>
+              <p class="overline">PROJECT STORY · GENERATED DRAFTS</p>
+              <h2 id="project-title">—</h2>
+              <p id="project-description">—</p>
+            </div>
+            <span class="project-license mono" id="project-license">—</span>
+          </header>
+
+          <div class="draft-shell">
+            <div class="draft-tabs" role="tablist" aria-label="생성 콘텐츠 유형">
+              <button id="tab-short" type="button" role="tab" aria-selected="true" aria-controls="draft-panel" data-draft="short">짧은 소개</button>
+              <button id="tab-community" type="button" role="tab" aria-selected="false" aria-controls="draft-panel" data-draft="community" tabindex="-1">커뮤니티 글</button>
+              <button id="tab-long" type="button" role="tab" aria-selected="false" aria-controls="draft-panel" data-draft="long" tabindex="-1">상세 소개</button>
+            </div>
+
+            <div class="draft-panel" id="draft-panel" role="tabpanel" aria-labelledby="tab-short">
+              <div class="editor-label-row">
+                <label class="section-label" for="draft-editor" id="draft-label">짧은 소개 원고</label>
+                <span class="mono" id="draft-evidence">README · VERIFIED SOURCE</span>
+              </div>
+              <textarea id="draft-editor" spellcheck="true" aria-describedby="editor-help" disabled></textarea>
+              <p class="editor-help" id="editor-help">화면에서 수정한 내용은 브라우저에만 유지됩니다.</p>
+            </div>
+
+            <footer class="action-dock">
+              <div class="draft-status">
+                <span class="signal signal-mint" aria-hidden="true"></span>
+                <span id="verification-status">README · License · Demo 확인 완료</span>
+                <span class="character-count mono" id="character-count">0자</span>
+              </div>
+              <div class="draft-actions">
+                <button id="copy-button" type="button" disabled>복사</button>
+                <button id="download-button" type="button" disabled>.md 저장</button>
+                <button class="accent-action" id="download-all-button" type="button" disabled>3개 원고 내려받기</button>
+              </div>
+            </footer>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

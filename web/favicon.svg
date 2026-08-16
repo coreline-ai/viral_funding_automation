@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Coreline Launch</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#0d1014" stroke="#2b333d" stroke-width="4"/>
+  <path d="M42 18A19 19 0 1 0 43 45" fill="none" stroke="#79d5c0" stroke-width="6" stroke-linecap="round"/>
+  <path d="M31 37 47 21M37 21h10v10" fill="none" stroke="#65b5ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
