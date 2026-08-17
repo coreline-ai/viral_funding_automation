@@ -26,6 +26,7 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /Facebook·Instagram·Product Hunt·Peerlist·Indie Hackers·OKKY/);
   assert.match(html, /id="draft-editor"/);
   assert.match(html, /id="copy-button"/);
+  assert.match(html, />작업본 복사<\/button>/);
   assert.match(html, /id="download-button"/);
   assert.match(html, /id="download-all-button"/);
   assert.match(html, /id="publish-preflight"/);
@@ -108,6 +109,9 @@ test("웹 실행 명령은 외부 프레임워크 없이 서버를 시작한다"
 test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를 포함한다", () => {
   assert.match(app, /state\.drafts\[state\.activeDraft\]/);
   assert.match(app, /navigator\.clipboard/);
+  assert.match(app, /\(\?:상태\|Status\).*HOLD/);
+  assert.match(app, /HOLD 표시를 해제할 수 있을 만큼 사람이 보강/);
+  assert.match(app, /현재 작업본 전체를 복사했습니다/);
   assert.match(app, /document\.execCommand\("copy"\)/);
   assert.match(app, /new Blob\(/);
   assert.match(app, /viral-content-pack\.md/);

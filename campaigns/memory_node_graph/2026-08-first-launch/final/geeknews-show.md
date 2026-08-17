@@ -25,11 +25,10 @@ AI Systems Atlas는 Markdown을 Remark AST로 파싱하고 문서·섹션·개�
 - 라이선스: MIT
 - 주요 기술: TypeScript, React, Three.js, Cloudflare D1
 
-현재는 active prototype입니다. 로컬 전체 기능은 Node.js 22.13 이상이 필요하고, 공개 데모는 검증된 정적 snapshot만 보여주는 읽기 전용 버전입니다.
+현재는 활성 프로토타입 단계입니다. 로컬 전체 기능은 Node.js 22.13 이상이 필요하고, 공개 데모는 검증된 정적 snapshot만 보여주는 읽기 전용 버전입니다.
 
-실제로 문서 관계를 탐색해 보셨을 때 어떤 필터나 근거 정보가 가장 먼저 필요했는지, 또는 첫 화면에서 이해하기 어려운 부분이 무엇이었는지 의견을 듣고 싶습니다.
+첫 화면에서 출처 근거가 있는 관계와 화면 구성용 연결이 구분되는지, 노드를 탐색할 때 어떤 근거 정보가 가장 먼저 필요한지 의견을 듣고 싶습니다.
 
 ## 대표 이미지
 
 `../assets/ai-systems-atlas-live.png`
-

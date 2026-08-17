@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "viral-project-summary/v1",
+  "schemaVersion": "viral-project-summary/v2",
   "name": "AI Systems Atlas",
   "repository": "coreline-ai/memory_node_graph",
   "repositoryUrl": "https://github.com/coreline-ai/memory_node_graph",
@@ -18,6 +18,19 @@
   ],
   "technologies": [
     "TypeScript",
+    "@openai/codex-sdk",
+    "d3-force-3d",
+    "drizzle-orm",
+    "next",
+    "react",
+    "react-dom",
+    "remark-gfm",
+    "remark-parse",
+    "three",
+    "unified",
+    "unist-util-visit"
+  ],
+  "topics": [
     "ai",
     "cloudflare-d1",
     "coreline-ai",
@@ -26,24 +39,29 @@
     "graph-rag",
     "knowledge-graph",
     "local-first",
-    "markdown"
+    "markdown",
+    "nextjs",
+    "rag",
+    "react"
   ],
   "demoUrl": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation",
+  "demoNote": "로그인 없이 Vercel 공개 배포본을 바로 열어 그래프를 회전·이동·확대하고 노드 관계를 탐색할 수 있습니다. 공개 앱은 GitHub에 커밋된 검증 JSON만 읽는 읽기 전용 정적 배포이며 운영 D1, API Route, OAuth 토큰을 포함하지 않습니다.",
   "license": "MIT",
   "defaultBranch": "main",
-  "limitations": [
+  "requirements": [
     "Node.js 22.13+",
     "로컬 D1은 Wrangler/Miniflare가 자동 구성"
   ],
+  "limitations": [],
   "evidence": {
     "readme": "https://github.com/coreline-ai/memory_node_graph/blob/main/README.md",
     "repository": "https://github.com/coreline-ai/memory_node_graph"
   },
   "hooks": [
-    "AI Systems Atlas — Markdown 문서를 빛나는 관계형 지식 그래프로 변환·탐색하는 AI Systems Atlas",
-    "핵심 기능: ✨ GPU 발광 그래프 — Three.js 점광·후광·관계선·배경 입자 렌더링",
+    "AI Systems Atlas — Markdown 문서를 빛나는 관계형 지식 그래프로 변환·탐색하는 프로젝트",
+    "AI Systems Atlas에서 ✨ GPU 발광 그래프 — Three.js 점광·후광·관계선·배경 입자 렌더링",
     "설치 전에 브라우저에서 먼저 체험하는 AI Systems Atlas",
-    "TypeScript · ai · cloudflare-d1로 만든 AI Systems Atlas",
-    "AI Systems Atlas를 사용해 보고 막힌 지점을 알려주세요"
+    "TypeScript · @openai/codex-sdk · d3-force-3d로 만든 AI Systems Atlas",
+    "AI Systems Atlas의 첫 화면에서 가장 이해하기 어려운 부분은 무엇일까요?"
   ]
 }

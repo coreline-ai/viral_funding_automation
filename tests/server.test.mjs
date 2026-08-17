@@ -135,7 +135,7 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 18종
       "xThread",
     ]);
     assert.match(payload.drafts.x1, /AI Systems Atlas/);
-    assert.match(payload.drafts.threads, /Build in Public/);
+    assert.match(payload.drafts.threads, /Threads 대화형 연속 게시/);
     assert.match(payload.drafts.reddit, /서브레딧/);
     assert.match(payload.drafts.facebook, /Facebook Reels/);
     assert.match(payload.drafts.instagram, /Instagram Reels/);

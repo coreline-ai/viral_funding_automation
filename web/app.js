@@ -95,7 +95,7 @@ const DRAFT_CONFIG = {
     label: "DEV 기술 글 작업본",
     filename: "dev-article.md",
     evidence: "DEV · SUBSTANTIAL CONTENT GATE",
-    help: "실제 제작 계기, 코드·명령 예제, 설계 트레이드오프와 실패 사례를 직접 보강해야 합니다.",
+    help: "게시문이 아니라 검증 자료입니다. 실제 기술 사례를 직접 쓰고 AI 보조 사실을 공개해야 합니다.",
   },
   shorts: {
     label: "YouTube Shorts 게시 준비",
@@ -107,7 +107,7 @@ const DRAFT_CONFIG = {
     label: "Show HN 사람 검토 작업본",
     filename: "show-hn.md",
     evidence: "SHOW HN · HOLD · AUTHOR REVIEW",
-    help: "앞선 채널 피드백을 반영하고 작성자 본인의 영어로 다시 쓴 뒤에만 제출하세요.",
+    help: "생성 제목·본문을 사용하거나 윤문하지 말고, 작성자가 본인의 영어로 처음부터 직접 써야 합니다.",
   },
 };
 
@@ -248,7 +248,9 @@ function renderDraftValidation() {
   const [message, status] = validations[state.activeDraft] || ["수동 검토가 필요합니다.", "warning"];
   elements.verificationStatus.textContent = message;
   elements.draftStatus.dataset.state = status;
-  elements.copyButton.disabled = state.phase !== "success";
+  const held = /(?:상태|Status):\s*`?HOLD\b/iu.test(value);
+  elements.copyButton.disabled = state.phase !== "success" || held;
+  elements.copyButton.title = held ? "HOLD 표시를 해제할 수 있을 만큼 사람이 보강한 뒤 복사하세요." : "현재 작업본 전체를 복사합니다.";
 }
 
 function setFeedback(message = "", tone = "neutral") {
@@ -805,7 +807,7 @@ elements.editor.addEventListener("input", () => {
 elements.copyButton.addEventListener("click", async () => {
   try {
     await copyText(state.drafts[state.activeDraft]);
-    showToast("현재 원고를 복사했습니다.");
+    showToast("현재 작업본 전체를 복사했습니다. 서비스 입력 필드와 내부 체크를 구분하세요.");
   } catch {
     showToast("자동 복사에 실패했습니다. 원고를 직접 선택해 복사하세요.", "error");
     elements.editor.focus();

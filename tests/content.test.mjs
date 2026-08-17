@@ -57,9 +57,24 @@ test("README 근거로 프로젝트 요약을 만든다", () => {
     "Three.js 기반 3D 탐색",
     "검색과 노드 필터링",
   ]);
-  assert.deepEqual(summary.limitations, ["Node.js 22 이상"]);
+  assert.deepEqual(summary.requirements, ["Node.js 22 이상"]);
+  assert.deepEqual(summary.limitations, []);
   assert.ok(summary.technologies.includes("three"));
+  assert.ok(!summary.technologies.includes("knowledge-graph"));
+  assert.deepEqual(summary.topics, ["knowledge-graph", "threejs"]);
   assert.ok(summary.audiences.length > 0);
+});
+
+test("실행 요구사항·현재 한계·공개 데모 경계를 분리한다", () => {
+  const summary = buildProjectSummary({
+    ...source,
+    readme: `${source.readme}\n## 현재 한계\n\n- 대용량 입력은 수동 검증 필요\n\n공개 데모는 로그인 없이 열리는 읽기 전용 정적 snapshot입니다.\n`,
+  });
+
+  assert.deepEqual(summary.requirements, ["Node.js 22 이상"]);
+  assert.deepEqual(summary.limitations, ["대용량 입력은 수동 검증 필요"]);
+  assert.match(summary.demoNote, /읽기 전용 정적 snapshot/);
+  assert.equal(summary.schemaVersion, "viral-project-summary/v2");
 });
 
 test("장식 문자를 제거하고 배지 이미지 대신 실제 데모 링크를 선택한다", () => {
@@ -153,34 +168,36 @@ test("요약과 주요 채널 수동 게시 출시팩 24개 파일을 렌더링�
   for (const segment of files["x-thread.md"].split(/\n\s*---\s*\n/u)) {
     assert.ok(countXWeightedCharacters(segment.trim()) <= 280);
   }
-  assert.match(files["threads-series.md"], /Threads Build in Public/);
-  assert.match(files["threads-series.md"], /## 5\/5 현재 단계와 피드백/);
-  assert.match(files["reddit-post.md"], /대상 서브레딧과 규칙 확인 전 게시 금지/);
-  assert.match(files["reddit-post.md"], /## 제목[\s\S]*## 본문/);
-  assert.match(files["reddit-post.md"], /업보트·Star를 요청하지 마세요/);
+  assert.match(files["threads-series.md"], /Threads 대화형 연속 게시/);
+  assert.match(files["threads-series.md"], /## 3\/3 공개 범위와 질문/);
+  assert.match(files["reddit-post.md"], /대상 서브레딧·계정·규칙·언어 확정 전 게시 금지/);
+  assert.match(files["reddit-post.md"], /작성자가 직접 다시 쓸 때 사용할 검증 사실/);
+  assert.match(files["reddit-post.md"], /업보트·Star·교차 게시를 요청하지 않음/);
   assert.match(files["linkedin-post.md"], /누구에게 유용한가/);
   assert.match(files["disquiet-product.md"], /제품을 먼저 등록하고 검토받은 뒤/);
   assert.match(files["geeknews-show.md"], /^# GeekNews Show 게시 초안/m);
   assert.match(files["geeknews-show.md"], /등록 구분: `Show`/);
   assert.doesNotMatch(files["geeknews-show.md"], /프로젝트\./);
-  assert.match(files["dev-article.md"], /^# .*DEV 기술 글 작업본/m);
-  assert.match(files["dev-article.md"], /## 해결하려는 문제/);
-  assert.match(files["dev-article.md"], /## 접근 방식/);
-  assert.match(files["dev-article.md"], /## 직접 실행하기/);
-  assert.match(files["dev-article.md"], /## 게시 전 보강할 내용/);
+  assert.match(files["dev-article.md"], /^# .*DEV 기술 글 작성 자료/m);
+  assert.match(files["dev-article.md"], /HOLD/);
+  assert.match(files["dev-article.md"], /AI 보조 사용 사실을 공개/);
+  assert.match(files["dev-article.md"], /작성자가 직접 채울 기술 사례/);
   assert.match(files["dev-article.md"], /라이선스: MIT/);
   assert.match(files["youtube-shorts.md"], /1080×1920/);
   assert.match(files["youtube-shorts.md"], /## 20초 샷리스트/);
   assert.match(files["youtube-shorts.md"], /Instagram Reels · Facebook Reels · TikTok/);
   assert.match(files["show-hn.md"], /HOLD/);
+  assert.match(files["show-hn.md"], /HUMAN-WRITTEN FROM SCRATCH/);
+  assert.doesNotMatch(files["show-hn.md"], /## Title|Author context draft/);
   assert.match(files["show-hn.md"], /Do not generate or automate HN comments/);
   assert.match(files["facebook-post.md"], /Facebook Reels/);
   assert.match(files["facebook-post.md"], /그룹 규칙 확인 전 게시 금지/);
   assert.match(files["instagram-reels.md"], /Instagram Reels/);
   assert.match(files["instagram-reels.md"], /기존 1080×1920 세로 영상/);
-  assert.match(files["instagram-reels.md"], /프로필의 대표 링크에서 확인할 수 있습니다/);
+  assert.match(files["instagram-reels.md"], /공개 데모와 GitHub 링크는 아래 링크 메모/);
   assert.doesNotMatch(files["instagram-reels.md"], /연결하세요/);
   assert.match(files["product-hunt-launch.md"], /## 제품 정보/);
+  assert.match(files["product-hunt-launch.md"], /HOLD/);
   assert.match(files["product-hunt-launch.md"], /## Maker 첫 댓글/);
   assert.match(files["product-hunt-launch.md"], /240×240/);
   assert.match(files["product-hunt-launch.md"], /1270×760/);
@@ -326,6 +343,6 @@ test("채널 템플릿이 특정 지식 그래프 도메인을 다른 저장소�
   ].join("\n");
 
   assert.doesNotMatch(channelDrafts, /knowledge graphs|growing Markdown|문서·지식 관리|관계와 근거/u);
-  assert.match(files["reddit-post.md"], /first-use experience/);
+  assert.match(files["reddit-post.md"], /작성자가 처음부터 다시 작성/);
   assert.match(files["youtube-shorts.md"], /Tiny Calc 실제 화면 20초 데모/);
 });

@@ -46,7 +46,7 @@ I would especially value feedback on two questions:
 1. Can you understand what to do within the first 30 seconds?
 2. Does the source evidence make each relationship feel trustworthy?
 
-Current limits: local setup requires Node.js 22.13+, and the local database is provided through Wrangler/Miniflare.
+Current limits: the live demo is a read-only static snapshot. Importing Markdown or syncing repositories requires the local app, which runs on Node.js 22.13+.
 
 Thanks for trying it. Concrete feedback on the first confusing step would help shape the next iteration.
 ```
