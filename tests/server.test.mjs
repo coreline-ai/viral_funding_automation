@@ -97,7 +97,7 @@ test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다",
   });
 });
 
-test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 12종을 반환한다", async () => {
+test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 18종을 반환한다", async () => {
   await withServer({ fetchImpl: githubFixtureFetch(), token: "server-only-token" }, async (origin) => {
     const response = await fetch(`${origin}/api/generate`, {
       method: "POST",
@@ -117,8 +117,14 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 12종
     assert.deepEqual(Object.keys(payload.drafts).sort(), [
       "dev",
       "disquiet",
+      "facebook",
       "geeknews",
+      "indieHackers",
+      "instagram",
       "linkedin",
+      "okky",
+      "peerlist",
+      "productHunt",
       "reddit",
       "shorts",
       "showHn",
@@ -131,6 +137,12 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 12종
     assert.match(payload.drafts.x1, /AI Systems Atlas/);
     assert.match(payload.drafts.threads, /Build in Public/);
     assert.match(payload.drafts.reddit, /서브레딧/);
+    assert.match(payload.drafts.facebook, /Facebook Reels/);
+    assert.match(payload.drafts.instagram, /Instagram Reels/);
+    assert.match(payload.drafts.productHunt, /Maker 첫 댓글/);
+    assert.match(payload.drafts.peerlist, /Launchpad/);
+    assert.match(payload.drafts.indieHackers, /Build in Public/);
+    assert.match(payload.drafts.okky, /OKKY 프로젝트 소개/);
     assert.match(payload.drafts.showHn, /HOLD/);
     assert.ok(!JSON.stringify(payload).includes("server-only-token"));
   });

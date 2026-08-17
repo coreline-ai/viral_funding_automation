@@ -3,6 +3,7 @@
 대상 저장소: [coreline-ai/memory_node_graph](https://github.com/coreline-ai/memory_node_graph)  
 직접 실행: [AI Systems Atlas 공개 데모](https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation)  
 첫 제안 채널: `GeekNews Show`  
+신규 6개 중 첫 선택 채널: `Product Hunt`
 상태: `원고·에셋 준비 완료 / 실제 게시는 사용자 최종 검토 필요`
 
 ## 파일 구성
@@ -12,6 +13,8 @@
 | `readiness.md` | 저장소·데모·라이선스·Quick Start 준비 상태 |
 | `assets/ai-systems-atlas-live.png` | 실제 공개 데모를 직접 캡처한 대표 이미지 |
 | `assets/ai-systems-atlas-shorts.mp4` | 실제 제품 화면 기반 20초 세로 Shorts MVP |
+| `assets/product-hunt-hero.png` | 기존 공개 OG를 복사한 Product Hunt Gallery 원본 |
+| `assets/product-hunt-thumbnail.svg` | 기존 공개 favicon을 복사한 Thumbnail 원본 |
 | `assets/README.md` | 이미지·영상의 출처, 규격, 무결성 정보 |
 | `generated/api-response.json` | 웹앱 `/api/generate` 실제 원본 응답 |
 | `generated/project-summary.json` | 웹앱이 분석한 프로젝트 요약 |
@@ -28,6 +31,8 @@
 | `generated/short-post.md` 등 3개 | 이전 파일명과의 호환 별칭 |
 | `final/geeknews-show.md` | 사실 대조 후 다듬은 첫 게시 최종 초안 |
 | `final/publish-checklist.md` | 실제 게시 직전 확인할 항목 |
+| `final/product-hunt-launch.md` | Product Hunt 영문 제출 필드·Maker 첫 댓글·자산 순서 |
+| `final/product-hunt-checklist.md` | Product Hunt 계정·Create Draft·예약 전 체크리스트 |
 
 ## 현실적인 사용 순서
 
@@ -36,6 +41,8 @@
 3. `final/publish-checklist.md`를 완료하고 GeekNews `Show`에 직접 등록합니다.
 4. 게시 URL과 시각을 기록하고 최소 72시간, 권장 7일 동안 반응을 확인합니다.
 5. 이후 Threads → Reddit 자격 확인 → X → LinkedIn·Disquiet → DEV → Shorts → Show HN 순으로 필요한 채널만 진행합니다.
+
+신규 6개 채널에서는 Product Hunt를 먼저 선택했습니다. `final/product-hunt-launch.md`의 영문 원고와 실제 제품 자산을 사용해 `Create Draft`까지만 준비하고, 개인 계정·미리보기·게시일을 확인한 뒤 예약합니다.
 
 ## 게시 가능 상태
 

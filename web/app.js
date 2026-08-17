@@ -49,6 +49,42 @@ const DRAFT_CONFIG = {
     evidence: "DISQUIET · PRODUCT FIRST",
     help: "제품을 먼저 등록·검토받은 뒤 제품에 연결된 포스트로 사용합니다.",
   },
+  facebook: {
+    label: "Facebook Reels·그룹 작업본",
+    filename: "facebook-post.md",
+    evidence: "FACEBOOK · ORIGINAL · GROUP RULES",
+    help: "Reels는 기존 세로 영상을 재사용하고, 그룹 본문은 대상 그룹 규칙을 확인한 뒤 한 곳씩 게시하세요.",
+  },
+  instagram: {
+    label: "Instagram Reels 작업본",
+    filename: "instagram-reels.md",
+    evidence: "INSTAGRAM · REELS · ASSET GATE",
+    help: "기존 세로 영상, 표지 문구, 모바일 안전 영역과 프로필 링크를 검수한 뒤 게시하세요.",
+  },
+  productHunt: {
+    label: "Product Hunt 론칭 작업본",
+    filename: "product-hunt-launch.md",
+    evidence: "PRODUCT HUNT · LAUNCH PACK",
+    help: "제품 정보·Gallery 자산·Maker 첫 댓글을 실제 계정과 현재 제품 화면에 맞춰 본인의 영어로 재작성하세요.",
+  },
+  peerlist: {
+    label: "Peerlist Launchpad 작업본",
+    filename: "peerlist-launchpad.md",
+    evidence: "PEERLIST · VERIFIED LAUNCH",
+    help: "프로필 인증, 프로젝트 완성도와 월요일 론칭 일정을 확인하고 제품 소개를 본인의 영어로 재작성하세요.",
+  },
+  indieHackers: {
+    label: "Indie Hackers Build in Public",
+    filename: "indie-hackers-post.md",
+    evidence: "INDIE HACKERS · BUILD IN PUBLIC",
+    help: "광고문 대신 실제 제작 계기와 어려웠던 결정, 현재 한계와 피드백 질문을 본인 경험으로 보강하세요.",
+  },
+  okky: {
+    label: "OKKY 프로젝트 소개 작업본",
+    filename: "okky-post.md",
+    evidence: "OKKY · COMMUNITY REVIEW",
+    help: "게시판 규칙을 확인하고 국내 개발자가 이해할 수 있는 개발 경험과 구체적인 피드백 질문으로 다듬으세요.",
+  },
   geeknews: {
     label: "GeekNews Show 원고",
     filename: "geeknews-show.md",
@@ -87,7 +123,7 @@ const PREFLIGHT_CONFIG = {
 const PREFLIGHT_KEYS = Object.keys(PREFLIGHT_CONFIG);
 const EXAMPLE_REPOSITORY_URL = "https://github.com/coreline-ai/memory_node_graph";
 const STORAGE_KEY = "coreline-launch:workspace:v1";
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const EXAMPLE_BUTTON_LABEL = "memory_node_graph 예제로 1턴 실행";
 
 const elements = {
@@ -198,6 +234,12 @@ function renderDraftValidation() {
     reddit: ["Reddit · 서브레딧과 계정·규칙 확인 전 게시 금지", "warning"],
     linkedin: ["LinkedIn · 전문적 맥락과 최종 말투 확인 필요", "ready"],
     disquiet: ["Disquiet · 제품 등록·검토 후 연결 포스트로 사용", "warning"],
+    facebook: ["Facebook · 원본 영상과 그룹 규칙 확인 전 게시 금지", "warning"],
+    instagram: ["Instagram · 원본 세로 영상·표지·프로필 링크 검수 필요", "warning"],
+    productHunt: ["Product Hunt · 제품 페이지·자산·작성자 영어 검토 필요", "warning"],
+    peerlist: ["Peerlist · 프로필·완성도·일정·작성자 영어 확인 필요", "warning"],
+    indieHackers: ["Indie Hackers · 실제 제작 경험과 작성자 영어 보강 필요", "warning"],
+    okky: ["OKKY · 게시판 규칙과 커뮤니티 말투 확인 필요", "warning"],
     geeknews: ["GeekNews Show · 계정·중복·최종 말투 검토 필요", "warning"],
     dev: ["DEV · 실제 경험과 실행 예제 보강 전 게시 금지", "warning"],
     shorts: ["YouTube Shorts · 실제 1080×1920 영상 검수 필요", "warning"],
@@ -266,33 +308,54 @@ function isPreflight(value) {
 }
 
 function migrateStoredWorkspace(value) {
-  if (!isRecord(value) || value.version !== 1) return value;
-  if (!isRecord(value.drafts) || !isRecord(value.initialDrafts)) return value;
-  if (!["short", "community", "long"].every((key) => typeof value.drafts[key] === "string")) return value;
-  if (!["short", "community", "long"].every((key) => typeof value.initialDrafts[key] === "string")) return value;
+  if (!isRecord(value)) return value;
 
-  const mapDrafts = (drafts) => ({
-    x1: drafts.short,
-    x2: drafts.short,
-    x3: drafts.short,
-    xThread: "",
-    threads: "",
-    reddit: "",
-    linkedin: "",
-    disquiet: "",
-    geeknews: drafts.community,
-    dev: drafts.long,
-    shorts: "",
-    showHn: "",
-  });
-  const activeDraft = { short: "x1", community: "geeknews", long: "dev" }[value.activeDraft] || "x1";
+  let workspace = value;
+  if (workspace.version === 1) {
+    if (!isRecord(workspace.drafts) || !isRecord(workspace.initialDrafts)) return value;
+    if (!["short", "community", "long"].every((key) => typeof workspace.drafts[key] === "string")) return value;
+    if (!["short", "community", "long"].every((key) => typeof workspace.initialDrafts[key] === "string")) return value;
+
+    const mapV1Drafts = (drafts) => ({
+      x1: drafts.short,
+      x2: drafts.short,
+      x3: drafts.short,
+      xThread: "",
+      threads: "",
+      reddit: "",
+      linkedin: "",
+      disquiet: "",
+      geeknews: drafts.community,
+      dev: drafts.long,
+      shorts: "",
+      showHn: "",
+    });
+    workspace = {
+      ...workspace,
+      version: 2,
+      drafts: mapV1Drafts(workspace.drafts),
+      initialDrafts: mapV1Drafts(workspace.initialDrafts),
+      activeDraft: { short: "x1", community: "geeknews", long: "dev" }[workspace.activeDraft] || "x1",
+      migratedFrom: 1,
+    };
+  }
+
+  if (workspace.version !== 2) return workspace;
+  const legacyKeys = ["x1", "x2", "x3", "xThread", "threads", "reddit", "linkedin", "disquiet", "geeknews", "dev", "shorts", "showHn"];
+  if (!isRecord(workspace.drafts) || !isRecord(workspace.initialDrafts)) return value;
+  if (!legacyKeys.every((key) => typeof workspace.drafts[key] === "string")) return value;
+  if (!legacyKeys.every((key) => typeof workspace.initialDrafts[key] === "string")) return value;
+
+  const expandDrafts = (drafts) => Object.fromEntries(
+    DRAFT_KEYS.map((key) => [key, typeof drafts[key] === "string" ? drafts[key] : ""]),
+  );
   return {
-    ...value,
+    ...workspace,
     version: STORAGE_VERSION,
-    drafts: mapDrafts(value.drafts),
-    initialDrafts: mapDrafts(value.initialDrafts),
-    activeDraft,
-    migratedFrom: 1,
+    drafts: expandDrafts(workspace.drafts),
+    initialDrafts: expandDrafts(workspace.initialDrafts),
+    activeDraft: DRAFT_CONFIG[workspace.activeDraft] ? workspace.activeDraft : "x1",
+    migratedFrom: workspace.migratedFrom || 2,
   };
 }
 
@@ -406,9 +469,11 @@ function restoreWorkspace() {
   renderActiveDraft();
 
   const savedAt = new Date(workspace.savedAt).toLocaleString("ko-KR");
-  const migrationNote = workspace.migratedFrom
+  const migrationNote = workspace.migratedFrom === 1
     ? " 기존 3종 원고를 이동했으며, 전체 채널 초안은 콘텐츠 생성을 다시 눌러 만드세요."
-    : " 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.";
+    : workspace.migratedFrom === 2
+      ? " 기존 12종 원고를 유지했으며, 신규 6종은 콘텐츠 생성을 다시 눌러 만드세요."
+      : " 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.";
   setFeedback(`이전 작업을 복원했습니다 (${savedAt}).${migrationNote}`, "restored");
   return true;
 }

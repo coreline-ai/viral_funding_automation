@@ -189,6 +189,12 @@ function cleanChannelItems(values) {
   return values.map((value) => cleanTitle(value)).filter(Boolean);
 }
 
+function truncateCharacters(value, limit) {
+  const characters = Array.from(cleanMarkdown(value));
+  if (characters.length <= limit) return characters.join("");
+  return `${characters.slice(0, Math.max(0, limit - 1)).join("").trimEnd()}…`;
+}
+
 function renderXPost(summary, body) {
   const link = summary.demoUrl || summary.repositoryUrl;
   const suffix = `\n\n${link}`;
@@ -371,6 +377,273 @@ ${bulletList(summary.limitations, "- README의 요구사항과 한계를 확인�
 `;
 }
 
+function renderFacebookDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  const link = summary.demoUrl || summary.repositoryUrl;
+  return `# Facebook Reels·그룹 수동 게시 작업본
+
+상태: \`원본 세로 영상과 그룹 규칙 확인 전 게시 금지\`
+
+- 그룹 규칙 도움말: https://www.facebook.com/help/462230500886400/
+- 원본 콘텐츠 안내: https://about.fb.com/news/2026/03/rewarding-original-creators-on-facebook/
+
+## Facebook Reels 캡션
+
+${summary.name}의 실제 화면을 20초로 정리했습니다.
+
+${asSentence(channelDescription(summary))}
+
+확인할 수 있는 내용:
+
+${bulletList(features.slice(0, 3))}
+
+데모와 소스: ${link}
+
+## 관련 Facebook 그룹용 본문
+
+직접 만든 ${summary.name}의 현재 공개 버전을 공유합니다.
+
+${asSentence(channelDescription(summary))}
+
+${summary.demoUrl ? `로그인 없이 확인 가능한 데모: ${summary.demoUrl}\n\n` : ""}GitHub: ${summary.repositoryUrl}
+라이선스: ${summary.license}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 현재 한계를 다시 확인해야 합니다.")}
+
+이런 도구를 처음 사용할 때 가장 먼저 확인하고 싶은 정보가 무엇인지 피드백을 받고 싶습니다.
+
+## 게시 전 확인
+
+- [ ] 기존 1080×1920 세로 영상이 실제 제품 화면으로 구성됨
+- [ ] 게시 대상 그룹의 자기홍보·링크·게시 형식 규칙 확인
+- [ ] 같은 문구를 여러 그룹에 반복 게시하지 않음
+- [ ] 다른 사람의 영상이나 사소한 편집본이 아닌 원본 콘텐츠 사용
+- [ ] 반응이나 공유를 인위적으로 요청하지 않음
+`;
+}
+
+function renderInstagramDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  const link = summary.demoUrl || summary.repositoryUrl;
+  const coverText = truncateCharacters(`${summary.name} 실제 화면 20초`, 42);
+  return `# Instagram Reels 게시 작업본
+
+상태: \`원본 세로 영상·표지·프로필 링크 검수 후 게시\`
+
+- Creator Best Practices: https://about.fb.com/news/2024/10/best-practices-education-hub-creators-instagram/
+
+## 표지 문구
+
+${coverText}
+
+## Reels 캡션
+
+${summary.name}의 실제 사용 화면을 20초로 정리했습니다.
+
+${asSentence(channelDescription(summary))}
+
+${features.slice(0, 2).map((feature) => `• ${feature}`).join("\n") || "• README에서 핵심 기능을 확인할 수 있습니다."}
+
+데모와 GitHub는 프로필의 대표 링크에서 확인할 수 있습니다.
+
+#opensource #buildinpublic #devtools
+
+## 링크 메모
+
+- 대표 링크: ${link}
+- GitHub: ${summary.repositoryUrl}
+
+## 게시 전 확인
+
+- [ ] 기존 1080×1920 세로 영상이 실제 제품 화면으로 구성됨
+- [ ] 핵심 UI가 모바일 안전 영역 안에서 식별됨
+- [ ] 표지 문구와 자막을 실제 영상에서 확인
+- [ ] 프로필 링크가 대표 링크로 연결됨
+- [ ] 반복 댓글·과도한 태그·인위적 반응 요청 없음
+`;
+}
+
+function renderProductHuntDraft(summary) {
+  const description = truncateCharacters(`${summary.name} — ${channelDescription(summary)}`, 260);
+  const tagline = truncateCharacters(channelDescription(summary), 60);
+  const features = cleanChannelItems(summary.features);
+  return `# Product Hunt 론칭 준비 작업본
+
+상태: \`제품 페이지·대표 자산·작성자 영어 검토 후 예약 또는 게시\`
+
+- 공식 게시 방법: https://help.producthunt.com/en/articles/479557-how-to-post-a-product
+
+## 제품 정보
+
+- 제품명: ${summary.name}
+- 태그라인: ${tagline}
+- 설명(260자 이내): ${description}
+- 제품 URL: ${summary.demoUrl || summary.repositoryUrl}
+- GitHub: ${summary.repositoryUrl}
+- 라이선스: ${summary.license}
+- 가격: \`[Free / Paid / Free trial 중 실제 상태 선택]\`
+- 공개 상태: \`[Live / Beta 상태 직접 확인]\`
+- Topics: \`[Product Hunt에서 실제 선택]\`
+
+## Thumbnail
+
+- 권장: 정사각형, 240×240
+- 사용 파일: \`[실제 제품 아이콘 선택]\`
+
+## Gallery 자산
+
+- [ ] 실제 제품 화면 2장 이상 준비 — 권장 1270×760
+- [ ] 첫 이미지에서 제품명과 핵심 화면이 식별됨
+- [ ] 영상은 공개 YouTube 전체 URL만 사용하거나 생략
+- [ ] 이미지 안 문구와 현재 제품 기능이 일치함
+
+## Maker 첫 댓글
+
+안녕하세요. ${summary.name}를 만든 개발자입니다.
+
+${asSentence(channelDescription(summary))}
+
+현재 공개 버전에서 먼저 확인할 수 있는 기능은 다음과 같습니다.
+
+${bulletList(features.slice(0, 3))}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 현재 한계를 확인해 주세요.")}
+
+실제로 사용했을 때 첫 화면에서 이해하기 어려운 부분을 구체적으로 알려주시면 다음 개선에 반영하겠습니다.
+
+## 게시 전 확인
+
+- [ ] 제품과 공개 링크가 실제로 작동함
+- [ ] 개인 계정의 게시 권한과 Maker 정보 확인
+- [ ] 대표 이미지·영상 권리와 최신 화면 확인
+- [ ] 태그라인·설명·첫 댓글을 작성자 본인의 영어로 재작성
+- [ ] 첫 댓글을 작성자 본인의 말투로 수정
+- [ ] 먼저 Create Draft로 전체 미리보기를 확인한 뒤 30일 안의 날짜를 예약
+- [ ] 투표나 인위적 반응을 요청하지 않음
+`;
+}
+
+function renderPeerlistDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  return `# Peerlist Launchpad 론칭 준비 작업본
+
+상태: \`프로필 인증·프로젝트 완성도·작성자 영어·론칭 일정 확인 후 게시\`
+
+- 공식 Launchpad 가이드: https://help.peerlist.io/individual/launchpad/how-to-launch-a-project-on-peerlist-launchpad
+
+## Launchpad 제품 정보
+
+- 제품명: ${summary.name}
+- 한 줄 소개: ${truncateCharacters(channelDescription(summary), 120)}
+- 제품 URL: ${summary.demoUrl || summary.repositoryUrl}
+- GitHub: ${summary.repositoryUrl}
+- 대표 이미지: 실제 제품 화면 1장
+
+## 주요 기능
+
+${bulletList(features.slice(0, 4))}
+
+## Maker 소개 댓글
+
+${summary.name}를 공개합니다. ${asSentence(channelDescription(summary))}
+
+현재 공개 버전의 기능과 한계를 함께 적었습니다. 처음 사용했을 때 막히는 단계와 더 필요한 사용 예시를 알려주세요.
+
+## 게시 전 확인
+
+- [ ] Peerlist 프로필 인증 완료
+- [ ] 프로젝트 페이지 필수 항목과 완성도 확인
+- [ ] 월요일 공개 또는 예약 일정 확인
+- [ ] 대표 링크와 이미지가 외부에서 열림
+- [ ] 제품 소개와 댓글을 작성자 본인의 영어로 재작성
+- [ ] 원치 않는 메시지로 추천을 요청하지 않음
+- [ ] 링크를 무관한 게시물이나 댓글에 반복하지 않음
+`;
+}
+
+function renderIndieHackersDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  return `# Indie Hackers Build in Public 작업본
+
+상태: \`실제 제작 경험과 작성자 본인의 영어를 보강한 뒤 게시\`
+
+- 커뮤니티: https://www.indiehackers.com/
+
+## 제목
+
+I built ${summary.name} and I am looking for feedback on the first-use flow
+
+## 본문
+
+### 해결하려던 문제
+
+${asSentence(channelDescription(summary))}
+
+### 지금까지 만든 것
+
+${bulletList(features.slice(0, 4))}
+
+### 공개 상태
+
+${summary.demoUrl ? `- 데모: ${summary.demoUrl}\n` : ""}- GitHub: ${summary.repositoryUrl}
+- 라이선스: ${summary.license}
+
+### 현재 한계
+
+${bulletList(summary.limitations, "- README의 요구사항과 현재 한계를 확인해 주세요.")}
+
+## 피드백 받고 싶은 부분
+
+처음 접한 사용자가 어떤 단계에서 목적을 이해하지 못하는지, 실제 작업에 적용하려면 어떤 예시가 먼저 필요한지 알고 싶습니다.
+
+> 게시 전 실제 제작 계기와 가장 어려웠던 결정 한 가지를 작성자 본인의 경험으로 추가하세요. 판매 문구나 성과 수치를 만들어 넣지 마세요.
+`;
+}
+
+function renderOkkyDraft(summary) {
+  const features = cleanChannelItems(summary.features);
+  return `# OKKY 프로젝트 소개·피드백 작업본
+
+상태: \`커뮤니티 규칙과 최종 말투 확인 후 게시\`
+
+- 커뮤니티: https://okky.kr/community
+
+## 제목
+
+[프로젝트 공유] ${summary.name} — ${truncateCharacters(channelDescription(summary), 48)}
+
+## 본문
+
+안녕하세요. 직접 개발한 ${summary.name}의 현재 공개 버전을 공유합니다.
+
+${asSentence(channelDescription(summary))}
+
+현재 확인할 수 있는 기능:
+
+${bulletList(features.slice(0, 4))}
+
+${summary.demoUrl ? `공개 데모: ${summary.demoUrl}\n` : ""}GitHub: ${summary.repositoryUrl}
+라이선스: ${summary.license}
+
+현재 한계:
+
+${bulletList(summary.limitations, "- README의 요구사항과 현재 한계를 확인해 주세요.")}
+
+처음 사용하셨을 때 설명이 부족한 부분이나 실제 개발 업무에서 필요할 것 같은 사용 예시를 알려주시면 다음 수정에 참고하겠습니다.
+
+## 게시 전 확인
+
+- [ ] OKKY 게시판과 프로젝트 공유 규칙 확인
+- [ ] 광고문이 아닌 개발 경험과 현재 한계 중심으로 최종 수정
+- [ ] 데모·GitHub 링크가 외부에서 열림
+- [ ] Star·추천·반복 댓글을 요청하지 않음
+`;
+}
+
 function renderShortsDraft(summary) {
   return `# YouTube Shorts 게시 준비 초안
 
@@ -380,6 +653,7 @@ function renderShortsDraft(summary) {
 - 화면: 실제 제품 화면만 사용
 - 시청 조건: 무음으로도 이해되는 자막
 - 음악: 저작권이 확인된 음원 또는 무음
+- 재사용 채널: Instagram Reels · Facebook Reels · TikTok
 
 ## 20초 샷리스트
 
@@ -492,6 +766,12 @@ export function renderContentPack(summary) {
     "reddit-post.md": renderRedditDraft(summary),
     "linkedin-post.md": renderLinkedInDraft(summary),
     "disquiet-product.md": renderDisquietDraft(summary),
+    "facebook-post.md": renderFacebookDraft(summary),
+    "instagram-reels.md": renderInstagramDraft(summary),
+    "product-hunt-launch.md": renderProductHuntDraft(summary),
+    "peerlist-launchpad.md": renderPeerlistDraft(summary),
+    "indie-hackers-post.md": renderIndieHackersDraft(summary),
+    "okky-post.md": renderOkkyDraft(summary),
     "geeknews-show.md": geeknews,
     "dev-article.md": dev,
     "youtube-shorts.md": renderShortsDraft(summary),

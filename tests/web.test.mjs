@@ -16,14 +16,14 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.match(html, /memory_node_graph 예제로 1턴 실행/);
   assert.match(html, /role="tablist"/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 12);
-  for (const label of ["X 1안", "X 스레드", "Threads", "Reddit", "LinkedIn", "Disquiet", "GeekNews", "DEV", "Shorts", "Show HN"]) {
+  assert.equal((html.match(/role="tab"/g) ?? []).length, 18);
+  for (const label of ["X 1안", "X 스레드", "Threads", "Reddit", "LinkedIn", "Disquiet", "GeekNews", "DEV", "Shorts", "Show HN", "Facebook", "Instagram", "Product Hunt", "Peerlist", "Indie Hackers", "OKKY"]) {
     assert.match(html, new RegExp(`>${label}<`));
   }
   assert.match(html, /전체 바이럴 채널 상태/);
   assert.equal((html.match(/class="channel-grid"/g) ?? []).length, 1);
-  assert.equal((html.match(/<article data-state=/g) ?? []).length, 13);
-  assert.match(html, /Reddit·GeekNews·Disquiet·DEV·Shorts·Show HN/);
+  assert.equal((html.match(/<article data-state=/g) ?? []).length, 19);
+  assert.match(html, /Facebook·Instagram·Product Hunt·Peerlist·Indie Hackers·OKKY/);
   assert.match(html, /id="draft-editor"/);
   assert.match(html, /id="copy-button"/);
   assert.match(html, /id="download-button"/);
@@ -44,8 +44,11 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /https:\/\/github\.com\/coreline-ai\/memory_node_graph/);
   assert.match(app, /form\.requestSubmit\(\)/);
   assert.match(app, /coreline-launch:workspace:v1/);
-  assert.match(app, /STORAGE_VERSION = 2/);
+  assert.match(app, /STORAGE_VERSION = 3/);
   assert.match(app, /migrateStoredWorkspace/);
+  assert.match(app, /workspace\.version === 1/);
+  assert.match(app, /workspace\.version !== 2/);
+  assert.match(app, /기존 12종 원고를 유지했으며, 신규 6종/);
   assert.match(app, /localStorage\.setItem/);
   assert.match(app, /localStorage\.getItem/);
   assert.match(app, /localStorage\.removeItem/);
@@ -59,6 +62,8 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /서브레딧과 계정·규칙 확인 전 게시 금지/);
   assert.match(app, /DEV 기술 글/);
   assert.match(app, /Show HN/);
+  assert.match(app, /Product Hunt/);
+  assert.match(app, /Indie Hackers/);
   assert.match(app, /이전 작업을 복원했습니다/);
   assert.doesNotMatch(app, /GITHUB_TOKEN|GH_TOKEN|Authorization/);
 });

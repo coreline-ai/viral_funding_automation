@@ -113,16 +113,22 @@ test("독립된 try 경로는 실제 데모 링크로 계속 인식한다", () =
   assert.equal(summary.demoUrl, "https://codapi.org/try/ripgrep/");
 });
 
-test("요약과 주요 채널 수동 게시 출시팩 18개 파일을 렌더링한다", () => {
+test("요약과 주요 채널 수동 게시 출시팩 24개 파일을 렌더링한다", () => {
   const files = renderContentPack(buildProjectSummary(source));
 
   assert.deepEqual(Object.keys(files).sort(), [
     "community-post.md",
     "dev-article.md",
     "disquiet-product.md",
+    "facebook-post.md",
     "geeknews-show.md",
+    "indie-hackers-post.md",
+    "instagram-reels.md",
     "linkedin-post.md",
     "long-post.md",
+    "okky-post.md",
+    "peerlist-launchpad.md",
+    "product-hunt-launch.md",
     "project-summary.json",
     "project-summary.md",
     "reddit-post.md",
@@ -165,8 +171,29 @@ test("요약과 주요 채널 수동 게시 출시팩 18개 파일을 렌더링�
   assert.match(files["dev-article.md"], /라이선스: MIT/);
   assert.match(files["youtube-shorts.md"], /1080×1920/);
   assert.match(files["youtube-shorts.md"], /## 20초 샷리스트/);
+  assert.match(files["youtube-shorts.md"], /Instagram Reels · Facebook Reels · TikTok/);
   assert.match(files["show-hn.md"], /HOLD/);
   assert.match(files["show-hn.md"], /Do not generate or automate HN comments/);
+  assert.match(files["facebook-post.md"], /Facebook Reels/);
+  assert.match(files["facebook-post.md"], /그룹 규칙 확인 전 게시 금지/);
+  assert.match(files["instagram-reels.md"], /Instagram Reels/);
+  assert.match(files["instagram-reels.md"], /기존 1080×1920 세로 영상/);
+  assert.match(files["instagram-reels.md"], /프로필의 대표 링크에서 확인할 수 있습니다/);
+  assert.doesNotMatch(files["instagram-reels.md"], /연결하세요/);
+  assert.match(files["product-hunt-launch.md"], /## 제품 정보/);
+  assert.match(files["product-hunt-launch.md"], /## Maker 첫 댓글/);
+  assert.match(files["product-hunt-launch.md"], /240×240/);
+  assert.match(files["product-hunt-launch.md"], /1270×760/);
+  assert.match(files["product-hunt-launch.md"], /Create Draft/);
+  assert.doesNotMatch(files["product-hunt-launch.md"], /upvote|업보트/i);
+  const productHuntDescription = files["product-hunt-launch.md"].match(/- 설명\(260자 이내\): (.+)/)?.[1] ?? "";
+  assert.ok(Array.from(productHuntDescription).length <= 260);
+  assert.match(files["peerlist-launchpad.md"], /프로필 인증/);
+  assert.match(files["peerlist-launchpad.md"], /원치 않는 메시지로 추천을 요청하지 않음/);
+  assert.match(files["indie-hackers-post.md"], /Build in Public/);
+  assert.match(files["indie-hackers-post.md"], /## 피드백 받고 싶은 부분/);
+  assert.match(files["okky-post.md"], /OKKY 프로젝트 소개/);
+  assert.match(files["okky-post.md"], /광고문이 아닌 개발 경험/);
   assert.equal(files["short-post.md"], files["x-single-1.md"]);
   assert.equal(files["community-post.md"], files["geeknews-show.md"]);
   assert.equal(files["long-post.md"], files["dev-article.md"]);
@@ -189,7 +216,7 @@ test("생성 파일을 저장소 이름 디렉터리에 기록한다", async () 
   try {
     const outputDirectory = await writeContentPack(root, source.input.repo, renderContentPack(buildProjectSummary(source)));
     const names = (await readdir(outputDirectory)).sort();
-    assert.equal(names.length, 18);
+    assert.equal(names.length, 24);
     assert.equal(JSON.parse(await readFile(join(outputDirectory, "project-summary.json"), "utf8")).repository, source.repository.fullName);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -235,9 +262,9 @@ test("CLI 인자를 검증하고 네트워크 없는 실행도 가능하다", as
       stdout: (value) => output.push(value),
     });
     assert.equal(receipt.repository, source.input.fullName);
-    assert.equal(receipt.files.length, 18);
+    assert.equal(receipt.files.length, 24);
     assert.equal(output.length, 1);
-    assert.equal((await readdir(receipt.outputDirectory)).length, 18);
+    assert.equal((await readdir(receipt.outputDirectory)).length, 24);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -288,6 +315,12 @@ test("채널 템플릿이 특정 지식 그래프 도메인을 다른 저장소�
     files["reddit-post.md"],
     files["linkedin-post.md"],
     files["disquiet-product.md"],
+    files["facebook-post.md"],
+    files["instagram-reels.md"],
+    files["product-hunt-launch.md"],
+    files["peerlist-launchpad.md"],
+    files["indie-hackers-post.md"],
+    files["okky-post.md"],
     files["youtube-shorts.md"],
     files["show-hn.md"],
   ].join("\n");
