@@ -25,6 +25,26 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.equal((html.match(/<article data-state=/g) ?? []).length, 19);
   assert.match(html, /Facebook·Instagram·Product Hunt·Peerlist·Indie Hackers·OKKY/);
   assert.match(html, /id="draft-editor"/);
+  assert.match(html, /id="translation-editor"/);
+  assert.match(html, /id="locale-select"/);
+  assert.match(html, /id="provider-auto"/);
+  assert.match(html, /id="provider-grok"/);
+  assert.match(html, /id="provider-codex"/);
+  assert.match(html, /자동 추천/);
+  assert.match(html, /Grok OAuth/);
+  assert.match(html, /Codex OAuth/);
+  assert.match(html, /id="provider-readiness"/);
+  assert.match(html, /id="translate-button"/);
+  assert.match(html, />생성</);
+  assert.match(html, /id="review-button"/);
+  assert.match(html, /id="revalidate-button"/);
+  assert.match(html, /id="revert-button"/);
+  assert.match(html, /id="author-inputs"/);
+  assert.match(html, /id="validation-issues"/);
+  assert.match(html, /id="completion-badge"/);
+  assert.match(html, /id="translate-all-button"/);
+  assert.match(html, />허용 채널 일괄 번역</);
+  assert.match(html, /id="author-ready"/);
   assert.match(html, /id="copy-button"/);
   assert.match(html, />작업본 복사<\/button>/);
   assert.match(html, /id="download-button"/);
@@ -45,11 +65,13 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /https:\/\/github\.com\/coreline-ai\/memory_node_graph/);
   assert.match(app, /form\.requestSubmit\(\)/);
   assert.match(app, /coreline-launch:workspace:v1/);
-  assert.match(app, /STORAGE_VERSION = 3/);
+  assert.match(app, /STORAGE_VERSION = 4/);
   assert.match(app, /migrateStoredWorkspace/);
   assert.match(app, /workspace\.version === 1/);
   assert.match(app, /workspace\.version !== 2/);
-  assert.match(app, /기존 12종 원고를 유지했으며, 신규 6종/);
+  assert.match(app, /upgradeWorkspaceToV4/);
+  assert.match(app, /parsePublish\(key, text\)/);
+  assert.match(app, /구조화 초안은 콘텐츠 생성을 다시 눌러 만드세요/);
   assert.match(app, /localStorage\.setItem/);
   assert.match(app, /localStorage\.getItem/);
   assert.match(app, /localStorage\.removeItem/);
@@ -91,7 +113,7 @@ test("memory_node_graph의 테마 토큰만 사용하고 이미지·그래프 �
 
 test("본문 가독성·반응형·reduced motion 계약을 포함한다", () => {
   assert.match(css, /body\s*\{[^}]*font-size:\s*14px/s);
-  assert.match(css, /#draft-editor\s*\{[^}]*font-size:\s*16px/s);
+  assert.match(css, /#draft-editor,\s*#translation-editor\s*\{[^}]*font-size:\s*16px/s);
   assert.match(css, /@media \(max-width: 1180px\)/);
   assert.match(css, /@media \(max-width: 760px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
@@ -107,11 +129,29 @@ test("웹 실행 명령은 외부 프레임워크 없이 서버를 시작한다"
 });
 
 test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를 포함한다", () => {
-  assert.match(app, /state\.drafts\[state\.activeDraft\]/);
+  assert.match(app, /state\.documents/);
+  assert.match(app, /\/api\/v1\/drafts\/compose/);
+  assert.match(app, /\/api\/v1\/drafts\/review/);
+  assert.match(app, /\/api\/v1\/drafts\/validate/);
+  assert.match(app, /\/api\/v1\/providers\/readiness/);
+  assert.match(app, /provider: state\.provider/);
+  assert.match(app, /setProvider\("codex"\)/);
+  assert.match(app, /aria-pressed/);
+  assert.match(app, /draftViewFromDocuments/);
+  assert.match(app, /syncDraftsFromDocuments/);
+  assert.match(app, /batchTranslateTargets/);
+  assert.match(app, /requestTranslation/);
+  assert.match(app, /missingAuthorInputKeys/);
+  assert.match(app, /displayCompletionStatus/);
+  assert.match(app, /previousEnglish/);
+  assert.match(app, /for \(const \[index, channel\] of targets\.entries\(\)\)/);
+  assert.match(app, /일괄 번역 중지/);
+  assert.match(app, /isTranslationAllowed/);
+  assert.doesNotMatch(app, /Promise\.all\([^)]*requestTranslation|Promise\.all\([^)]*\/api\/translate/);
   assert.match(app, /navigator\.clipboard/);
-  assert.match(app, /\(\?:상태\|Status\).*HOLD/);
-  assert.match(app, /HOLD 표시를 해제할 수 있을 만큼 사람이 보강/);
-  assert.match(app, /현재 작업본 전체를 복사했습니다/);
+  assert.match(app, /copyBlockReason/);
+  assert.match(app, /authorReady/);
+  assert.match(app, /게시 필드만 복사했습니다/);
   assert.match(app, /document\.execCommand\("copy"\)/);
   assert.match(app, /new Blob\(/);
   assert.match(app, /viral-content-pack\.md/);

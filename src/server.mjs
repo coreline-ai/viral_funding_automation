@@ -4,8 +4,12 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { buildProjectSummary, renderContentPack } from "./content.mjs";
+import { buildGenerationArtifacts, buildProjectSummary } from "./content.mjs";
 import { fetchRepositoryBaseline, fetchRepositorySource, GitHubApiError } from "./github.mjs";
+import { CliCodexTextRunner, CliGrokTextRunner, GrokProxyError, loadCodexRuntimeConfig, loadGrokRuntimeConfig } from "./grok-oauth-proxy.mjs";
+import { preferredProvider } from "./completion.mjs";
+import { composeDraft, reviewDraft, validateDraft } from "./composition.mjs";
+import { TRANSLATE_MAX_BODY_BYTES, createDefaultTranslateQueue, translatePublishFields } from "./translation.mjs";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4310;
@@ -19,6 +23,9 @@ const STATIC_ROUTES = new Map([
   ["/styles.css", { file: "styles.css", type: "text/css; charset=utf-8" }],
   ["/app.js", { file: "app.js", type: "text/javascript; charset=utf-8" }],
   ["/x-text.mjs", { file: "x-text.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/drafts.mjs", { file: "drafts.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/locales.mjs", { file: "locales.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/channel-profiles.mjs", { file: "channel-profiles.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
 ]);
 
 class HttpError extends Error {
@@ -54,23 +61,23 @@ function sendEmpty(response, status, headers = {}) {
   response.end();
 }
 
-async function readJsonBody(request) {
+async function readJsonBody(request, maxBytes = MAX_BODY_BYTES) {
   const contentType = request.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
   if (contentType !== "application/json") {
     throw new HttpError(415, "UNSUPPORTED_CONTENT_TYPE", "Content-Type은 application/json이어야 합니다.");
   }
 
   const contentLength = Number(request.headers["content-length"] ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    throw new HttpError(413, "REQUEST_TOO_LARGE", "요청 본문은 8KB를 넘을 수 없습니다.");
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new HttpError(413, "REQUEST_TOO_LARGE", maxBytes > MAX_BODY_BYTES ? "번역 요청 본문이 너무 큽니다." : "요청 본문은 8KB를 넘을 수 없습니다.");
   }
 
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
-      throw new HttpError(413, "REQUEST_TOO_LARGE", "요청 본문은 8KB를 넘을 수 없습니다.");
+    if (size > maxBytes) {
+      throw new HttpError(413, "REQUEST_TOO_LARGE", maxBytes > MAX_BODY_BYTES ? "번역 요청 본문이 너무 큽니다." : "요청 본문은 8KB를 넘을 수 없습니다.");
     }
     chunks.push(chunk);
   }
@@ -89,6 +96,9 @@ async function readJsonBody(request) {
 
 function mapApplicationError(error) {
   if (error instanceof HttpError) return error;
+  if (error instanceof GrokProxyError) {
+    return new HttpError(error.status, error.code, error.message);
+  }
   if (error instanceof TypeError) {
     return new HttpError(400, "INVALID_REPOSITORY_URL", "공개 GitHub 저장소 URL을 확인하세요.");
   }
@@ -117,7 +127,7 @@ async function buildGenerationResponse(repoUrl, options) {
     token: options.token,
   });
   const summary = buildProjectSummary(source);
-  const files = renderContentPack(summary);
+  const artifacts = buildGenerationArtifacts(summary);
 
   return {
     repository: {
@@ -142,26 +152,8 @@ async function buildGenerationResponse(repoUrl, options) {
       openIssues: source.repository.openIssues,
     },
     summary,
-    drafts: {
-      x1: files["x-single-1.md"],
-      x2: files["x-single-2.md"],
-      x3: files["x-single-3.md"],
-      xThread: files["x-thread.md"],
-      threads: files["threads-series.md"],
-      reddit: files["reddit-post.md"],
-      linkedin: files["linkedin-post.md"],
-      disquiet: files["disquiet-product.md"],
-      facebook: files["facebook-post.md"],
-      instagram: files["instagram-reels.md"],
-      productHunt: files["product-hunt-launch.md"],
-      peerlist: files["peerlist-launchpad.md"],
-      indieHackers: files["indie-hackers-post.md"],
-      okky: files["okky-post.md"],
-      geeknews: files["geeknews-show.md"],
-      dev: files["dev-article.md"],
-      shorts: files["youtube-shorts.md"],
-      showHn: files["show-hn.md"],
-    },
+    drafts: artifacts.drafts,
+    documents: artifacts.documents,
   };
 }
 
@@ -206,6 +198,11 @@ export function createAppServer(options = {}) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const token = options.token ?? process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   const onError = options.onError ?? ((error) => console.error(error));
+  const grokConfig = options.grokConfig ?? loadGrokRuntimeConfig(options.env ?? process.env);
+  const grokRunner = options.grokRunner ?? new CliGrokTextRunner(grokConfig);
+  const codexConfig = options.codexConfig ?? loadCodexRuntimeConfig(options.env ?? process.env);
+  const codexRunner = options.codexRunner ?? new CliCodexTextRunner(codexConfig);
+  const translateQueue = options.translateQueue ?? createDefaultTranslateQueue(options.env ?? process.env);
 
   return createNodeServer(async (request, response) => {
     try {
@@ -221,6 +218,77 @@ export function createAppServer(options = {}) {
           token,
         });
         sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/providers/readiness") {
+        if (request.method !== "GET") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "GET 요청만 지원합니다.", { Allow: "GET" });
+        }
+        const probeAuth = requestUrl.searchParams.get("probe") === "1";
+        const [grok, codex] = await Promise.all([
+          grokRunner.readiness({ probeAuth }),
+          codexRunner.readiness({ probeAuth }),
+        ]);
+        sendJson(response, 200, {
+          grok: { id: "grok", ...grok },
+          codex: { id: "codex", ...codex },
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/translate") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
+        const requested = payload?.provider === "auto" ? "auto" : payload?.provider === "codex" ? "codex" : "grok";
+        const resolved = requested === "auto" ? (preferredProvider(payload.channel) ?? "grok") : requested;
+        const runners = { grok: grokRunner, codex: codexRunner };
+        const result = await translatePublishFields({ ...payload, provider: requested }, {
+          runner: resolved === "codex" ? codexRunner : grokRunner,
+          runners,
+          queue: translateQueue,
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/drafts/compose") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
+        const result = await composeDraft(payload, {
+          runners: { grok: grokRunner, codex: codexRunner },
+          queue: translateQueue,
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/drafts/review") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
+        const requested = payload?.provider === "auto" ? "auto" : payload?.provider === "codex" ? "codex" : "grok";
+        const resolved = requested === "auto" ? (preferredProvider(payload.channel) ?? "grok") : requested;
+        const result = await reviewDraft({ ...payload, provider: requested }, {
+          runner: resolved === "codex" ? codexRunner : grokRunner,
+          runners: { grok: grokRunner, codex: codexRunner },
+          queue: translateQueue,
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/drafts/validate") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
+        sendJson(response, 200, validateDraft(payload));
         return;
       }
 

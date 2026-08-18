@@ -1,0 +1,133 @@
+{
+  "capturedAt": "2026-08-18T13:19:50.357Z",
+  "xAngles": [],
+  "linkedIn": [],
+  "productHunt": [],
+  "items": {
+    "x1": {
+      "channel": "x1",
+      "provider": "grok",
+      "status": "ready",
+      "sourceHash": "18b33441",
+      "publishFields": {
+        "body": "README and dev-plan files stack up. Search still misses how the docs connect.\n\nAI Systems Atlas maps Markdown nodes, relationships, and source citations as a 3D graph.\n\nhttps://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation\n\nWhere does your repo’s search fail first?"
+      },
+      "summary": {
+        "oneSentence": "When README and dev-plan files pile up, search alone often misses how documents connect.",
+        "shortIntro": "AI Systems Atlas renders Markdown nodes, relationships, and source citations as a 3D graph (TypeScript, React, Three.js, MIT).",
+        "features": [],
+        "demoBoundary": "Demo: https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation — repo: https://github.com/coreline-ai/memory_node_graph"
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    },
+    "linkedin": {
+      "channel": "linkedin",
+      "provider": "codex",
+      "status": "ready",
+      "sourceHash": "6582398b",
+      "publishFields": {
+        "body": "As documentation grows, it becomes harder to understand how a decision connects to concepts and work—not just where it was written.\n\nI built a public version of AI Systems Atlas to explore this problem.\n\nIt parses README and dev-plan Markdown through a Remark AST to create document, section, concept, and task nodes. Relationships backed by source paths and line references are kept separate from connections used for screen composition. The result can be explored through constellation, nebula, and orbit views built with TypeScript, React, and Three.js.\n\nThe public demo is a read-only static snapshot with no login. Markdown import and repository synchronization are available in the local app.\n\nDemo: https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation\nGitHub: https://github.com/coreline-ai/memory_node_graph\nLicense: MIT\n\nWhen working with technical documentation, which feels more lacking in practice: understanding the full context or tracing claims back to their sources?"
+      },
+      "summary": {
+        "oneSentence": "AI Systems Atlas explores how technical documents, concepts, and tasks connect while preserving source-level evidence.",
+        "shortIntro": "As documentation grows, understanding how a decision connects to concepts and work becomes harder than simply finding where it was written.",
+        "features": [],
+        "demoBoundary": "The public demo is a read-only static snapshot with no login; Markdown import and repository synchronization are available in the local app."
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://github.com/coreline-ai/memory_node_graph"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        },
+        {
+          "type": "lockTerm",
+          "value": "MIT"
+        },
+        {
+          "type": "lockTerm",
+          "value": "TypeScript"
+        },
+        {
+          "type": "lockTerm",
+          "value": "React"
+        },
+        {
+          "type": "lockTerm",
+          "value": "Three.js"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    },
+    "productHunt": {
+      "channel": "productHunt",
+      "provider": "codex",
+      "status": "needs_review",
+      "sourceHash": "d2f00a0b",
+      "publishFields": {
+        "name": "AI Systems Atlas",
+        "tagline": "Explore Markdown as an evidence-linked knowledge graph",
+        "description": "AI Systems Atlas turns README and dev-plan Markdown into evidence-linked nodes and relationships you can explore across three interactive Three.js views. It is open source, local-first, and available as a no-sign-up live demo.",
+        "firstComment": "Hi Product Hunt — I built AI Systems Atlas because long collections of READMEs and development plans make it difficult to see how concepts, decisions, and tasks connect.\n\nThe app parses Markdown with an AST, keeps source-backed relationships separate, and renders the result as constellation, nebula, and orbit views in Three.js. The public demo is read-only and works without signup, and the source is available under the MIT license.\n\nI would especially value feedback on two questions:\n\n1. Can you understand what to do within the first 30 seconds?\n2. Does the source evidence make each relationship feel trustworthy?\n\nCurrent limits: the live demo is a read-only static snapshot. Importing Markdown or syncing repositories requires the local app, which runs on Node.js 22.13+.\n\nThanks for trying it. Concrete feedback on the first confusing step would help shape the next iteration."
+      },
+      "summary": {
+        "oneSentence": "AI Systems Atlas turns Markdown into an evidence-linked knowledge graph with interactive visual views.",
+        "shortIntro": "Explore relationships across README and development-plan Markdown while keeping connections tied to their sources.",
+        "features": [
+          "Parses Markdown into evidence-linked nodes and relationships",
+          "Provides constellation, nebula, and orbit views in Three.js",
+          "Offers a read-only live demo with no signup",
+          "Runs locally with source available under the MIT license"
+        ],
+        "demoBoundary": "The live demo is a read-only static snapshot; Markdown imports and repository syncing require the local app running on Node.js 22.13+."
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "MIT"
+        },
+        {
+          "type": "lockTerm",
+          "value": "Three.js"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    }
+  }
+}

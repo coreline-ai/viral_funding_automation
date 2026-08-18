@@ -1,6 +1,8 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { CHANNEL_KEYS, createDraftDocument, serializePublish } from "./drafts.mjs";
+import { applyVerifiedCopy } from "./verified-copy.mjs";
 import { countXWeightedCharacters, truncateXWeightedText } from "./x-text.mjs";
 
 const FEATURE_SECTION = /(핵심\s*특징|주요\s*기능|기능|features?|what it does)/i;
@@ -225,15 +227,11 @@ function renderXPost(summary, body) {
 function renderXVariants(summary) {
   const description = channelDescription(summary);
   const feature = cleanChannelItems(summary.features)[0] || description;
-  const audience = summary.audiences[0] || "개발자";
-  const originalDescription = cleanMarkdown(summary.description);
-  const first = originalDescription.toLocaleLowerCase().startsWith(cleanMarkdown(summary.name).toLocaleLowerCase())
-    ? originalDescription
-    : `${summary.name} — ${description}`;
+  const tech = summary.technologies.slice(0, 3).join(" → ") || description;
   return [
-    renderXPost(summary, first),
-    renderXPost(summary, `${feature}. ${summary.demoUrl ? "로그인 없는 공개 데모에서 핵심 흐름을 직접 확인할 수 있습니다." : "GitHub에서 구현과 실행 방법을 확인할 수 있습니다."}`),
-    renderXPost(summary, `${audience}를 위한 ${summary.name}. ${description}. 기능 소개보다 실제 사용 흐름에 대한 피드백을 기다립니다.`),
+    renderXPost(summary, `문서가 쌓일수록 파일은 찾아도 연결을 놓칩니다. ${summary.name} — ${summary.description}`),
+    renderXPost(summary, `${feature}. 보이는 연결과 근거가 있는 관계를 구분합니다.`),
+    renderXPost(summary, `${tech}. ${summary.name} 첫 화면에서 무엇을 먼저 이해하나요?`),
   ];
 }
 
@@ -723,6 +721,194 @@ function assertNoHype(files) {
   for (const word of BANNED_HYPE) {
     if (text.includes(word)) throw new Error(`금지 과장어가 생성되었습니다: ${word}`);
   }
+}
+
+function featureList(summary, limit) {
+  return cleanChannelItems(summary.features).slice(0, limit);
+}
+
+function factsObject(summary) {
+  return {
+    name: summary.name,
+    description: channelDescription(summary),
+    demoUrl: summary.demoUrl || "",
+    repositoryUrl: summary.repositoryUrl,
+    license: summary.license,
+    features: featureList(summary, 4),
+  };
+}
+
+function linkedInBody(summary) {
+  const features = featureList(summary, 3);
+  const boundary = summary.demoNote || (summary.demoUrl ? "공개 데모는 로그인 없는 읽기 전용 범위입니다." : "공개 데모는 없고 GitHub에서 실행 방법을 확인합니다.");
+  return `문제: 문서가 쌓일수록 파일은 찾아도 결정·개념·작업이 어떻게 연결되는지는 놓치기 쉽습니다.
+
+구현 선택: ${summary.name}은 ${asSentence(channelDescription(summary))}
+${bulletList(features)}
+구성: ${summary.technologies.slice(0, 8).join(" · ") || "README 기술 구성"}
+
+공개 데모 경계: ${boundary}
+${summary.demoUrl ? `데모: ${summary.demoUrl}\n` : ""}GitHub: ${summary.repositoryUrl}
+라이선스: ${summary.license}
+
+질문: 첫 30초 안에 무엇을 해야 하는지 이해되나요?`.trim();
+}
+
+function threadsPosts(summary) {
+  const features = featureList(summary, 3);
+  const link = summary.demoUrl || summary.repositoryUrl;
+  return [
+    `${asSentence(channelDescription(summary))}\n\n${summary.demoUrl ? "공개 데모는 로그인 없이 열 수 있습니다." : "설치와 실행 방법은 GitHub에서 확인할 수 있습니다."}`,
+    bulletList(features),
+    `${bulletList(publicNotes(summary), "- 공개 범위와 실행 조건은 README에서 확인할 수 있습니다.")}\n\n첫 화면에서 무엇을 할 수 있는지 바로 이해되나요? 가장 먼저 확인하고 싶은 정보도 알려주세요.\n\n${link}`,
+  ];
+}
+
+export function buildDraftDocuments(summary) {
+  const xVariants = renderXVariants(summary);
+  const productHunt = {
+    name: summary.name,
+    tagline: truncateCharacters(channelDescription(summary), 60),
+    description: truncateCharacters(`${summary.name} — ${channelDescription(summary)}`, 260),
+    firstComment: `안녕하세요. ${summary.name}를 만든 개발자입니다.
+
+${asSentence(channelDescription(summary))}
+
+현재 공개 버전에서 먼저 확인할 수 있는 기능은 다음과 같습니다.
+
+${bulletList(featureList(summary, 3))}
+
+공개 범위와 현재 한계:
+
+${bulletList(publicNotes(summary), "- 공개 범위와 실행 조건은 README에서 확인해 주세요.")}
+
+실제로 사용했을 때 첫 화면에서 이해하기 어려운 부분을 구체적으로 알려주시면 다음 개선에 반영하겠습니다.`,
+  };
+  const builders = {
+    x1: () => createDraftDocument("x1", { publishFields: { body: xVariants[0].trimEnd() + "\n" } }),
+    x2: () => createDraftDocument("x2", { publishFields: { body: xVariants[1].trimEnd() + "\n" } }),
+    x3: () => createDraftDocument("x3", { publishFields: { body: xVariants[2].trimEnd() + "\n" } }),
+    xThread: () => createDraftDocument("xThread", {
+      publishFields: { segments: renderXThread(summary).split(/\n\s*---\s*\n/u).map((item) => item.trim()).filter(Boolean) },
+    }),
+    threads: () => createDraftDocument("threads", { publishFields: { posts: threadsPosts(summary) } }),
+    reddit: () => createDraftDocument("reddit", { publishFields: { facts: factsObject(summary) } }),
+    linkedin: () => createDraftDocument("linkedin", { publishFields: { body: linkedInBody(summary) } }),
+    disquiet: () => createDraftDocument("disquiet", {
+      publishFields: {
+        productName: summary.name,
+        tagline: channelDescription(summary),
+        productLink: summary.demoUrl || summary.repositoryUrl,
+        postBody: `${summary.name}를 공개합니다.\n\n${asSentence(channelDescription(summary))}`,
+      },
+    }),
+    facebook: () => createDraftDocument("facebook", {
+      publishFields: {
+        reelsCaption: `${summary.name}의 실제 화면을 20초로 정리했습니다.\n\n${asSentence(channelDescription(summary))}`,
+        groupBody: `직접 만든 ${summary.name}의 현재 공개 버전을 공유합니다.\n\n${asSentence(channelDescription(summary))}`,
+      },
+    }),
+    instagram: () => createDraftDocument("instagram", {
+      publishFields: {
+        cover: truncateCharacters(`${summary.name} 실제 화면 20초`, 42),
+        caption: `${summary.name}의 실제 화면에서 ${channelDescription(summary)} 흐름을 20초로 정리했습니다.`,
+      },
+    }),
+    productHunt: () => createDraftDocument("productHunt", { publishFields: productHunt }),
+    peerlist: () => createDraftDocument("peerlist", {
+      publishFields: {
+        name: summary.name,
+        tagline: truncateCharacters(channelDescription(summary), 120),
+        comment: `${summary.name}를 공개합니다. ${asSentence(channelDescription(summary))}`,
+      },
+    }),
+    indieHackers: () => createDraftDocument("indieHackers", {
+      publishFields: {
+        title: `I built ${summary.name} and I am looking for feedback on the first-use flow`,
+        body: `${asSentence(channelDescription(summary))}\n\n${bulletList(featureList(summary, 4))}`,
+      },
+    }),
+    okky: () => createDraftDocument("okky", {
+      publishFields: {
+        title: `[프로젝트 공유] ${summary.name} — ${truncateCharacters(channelDescription(summary), 48)}`,
+        body: `안녕하세요. 직접 개발한 ${summary.name}의 현재 공개 버전을 공유합니다.\n\n${asSentence(channelDescription(summary))}`,
+      },
+    }),
+    geeknews: () => createDraftDocument("geeknews", {
+      publishFields: {
+        title: `${summary.name} – ${channelDescription(summary)}`,
+        body: `${summary.name}를 소개합니다. ${asSentence(channelDescription(summary))}`,
+      },
+    }),
+    dev: () => createDraftDocument("dev", { publishFields: { facts: factsObject(summary) } }),
+    shorts: () => createDraftDocument("shorts", {
+      publishFields: {
+        title: `${summary.name} 실제 화면 20초 데모`,
+        description: asSentence(channelDescription(summary)),
+        shots: [
+          "문서가 쌓일수록 연결은 찾기 어렵습니다",
+          featureList(summary, 1)[0] || channelDescription(summary),
+          `${summary.name} · 읽기 전용 공개 데모`,
+        ],
+      },
+    }),
+    showHn: () => createDraftDocument("showHn", {
+      publishFields: {},
+      internal: {
+        notes: [
+          `Project: ${summary.name}`,
+          `Demo: ${summary.demoUrl || "None"}`,
+          `Source: ${summary.repositoryUrl}`,
+          `License: ${summary.license}`,
+        ],
+      },
+    }),
+  };
+  return applyVerifiedCopy(summary, Object.fromEntries(CHANNEL_KEYS.map((channel) => [channel, builders[channel]()])));
+}
+
+export function draftStringsFromDocuments(items) {
+  return Object.fromEntries(CHANNEL_KEYS.map((channel) => [
+    channel,
+    serializePublish(channel, items[channel]?.publishFields ?? {}),
+  ]));
+}
+
+export function draftStringsFromFiles(files) {
+  return {
+    x1: files["x-single-1.md"],
+    x2: files["x-single-2.md"],
+    x3: files["x-single-3.md"],
+    xThread: files["x-thread.md"],
+    threads: files["threads-series.md"],
+    reddit: files["reddit-post.md"],
+    linkedin: files["linkedin-post.md"],
+    disquiet: files["disquiet-product.md"],
+    facebook: files["facebook-post.md"],
+    instagram: files["instagram-reels.md"],
+    productHunt: files["product-hunt-launch.md"],
+    peerlist: files["peerlist-launchpad.md"],
+    indieHackers: files["indie-hackers-post.md"],
+    okky: files["okky-post.md"],
+    geeknews: files["geeknews-show.md"],
+    dev: files["dev-article.md"],
+    shorts: files["youtube-shorts.md"],
+    showHn: files["show-hn.md"],
+  };
+}
+
+export function buildGenerationArtifacts(summary) {
+  const files = renderContentPack(summary);
+  const items = buildDraftDocuments(summary);
+  return {
+    files,
+    drafts: draftStringsFromDocuments(items),
+    documents: {
+      schemaVersion: "viral-documents/v1",
+      sourceLocale: "ko-KR",
+      items,
+    },
+  };
 }
 
 export function renderContentPack(summary) {

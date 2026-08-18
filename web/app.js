@@ -1,3 +1,21 @@
+import {
+  channelSpec,
+  copyBlockReason,
+  createDraftDocument,
+  displayCompletionStatus,
+  hashPublishFields,
+  matchesFieldContract,
+  parsePublish,
+  serializePublish,
+  translationFactsFromSummary,
+  validatePublish,
+} from "/drafts.mjs";
+import {
+  authorInputDefs,
+  channelProfile,
+  preferredProvider,
+  requiredAuthorInputs,
+} from "/channel-profiles.mjs";
 import { countXWeightedCharacters } from "/x-text.mjs";
 
 const DRAFT_CONFIG = {
@@ -123,7 +141,7 @@ const PREFLIGHT_CONFIG = {
 const PREFLIGHT_KEYS = Object.keys(PREFLIGHT_CONFIG);
 const EXAMPLE_REPOSITORY_URL = "https://github.com/coreline-ai/memory_node_graph";
 const STORAGE_KEY = "coreline-launch:workspace:v1";
-const STORAGE_VERSION = 3;
+const STORAGE_VERSION = 4;
 const EXAMPLE_BUTTON_LABEL = "memory_node_graph 예제로 1턴 실행";
 
 const elements = {
@@ -156,6 +174,31 @@ const elements = {
   draftLabel: document.querySelector("#draft-label"),
   draftEvidence: document.querySelector("#draft-evidence"),
   editor: document.querySelector("#draft-editor"),
+  translationEditor: document.querySelector("#translation-editor"),
+  localeSelect: document.querySelector("#locale-select"),
+  providerField: document.querySelector("#provider-field"),
+  providerAuto: document.querySelector("#provider-auto"),
+  providerGrok: document.querySelector("#provider-grok"),
+  providerCodex: document.querySelector("#provider-codex"),
+  providerReadiness: document.querySelector("#provider-readiness"),
+  translateButton: document.querySelector("#translate-button"),
+  reviewButton: document.querySelector("#review-button"),
+  revalidateButton: document.querySelector("#revalidate-button"),
+  revertButton: document.querySelector("#revert-button"),
+  translateAllButton: document.querySelector("#translate-all-button"),
+  composeWorkbench: document.querySelector("#compose-workbench"),
+  constraintProvider: document.querySelector("#constraint-provider"),
+  constraintFields: document.querySelector("#constraint-fields"),
+  constraintLength: document.querySelector("#constraint-length"),
+  constraintFacts: document.querySelector("#constraint-facts"),
+  authorInputs: document.querySelector("#author-inputs"),
+  validationIssues: document.querySelector("#validation-issues"),
+  completionBadge: document.querySelector("#completion-badge"),
+  translateStatus: document.querySelector("#translate-status"),
+  authorReady: document.querySelector("#author-ready"),
+  authorReadyLabel: document.querySelector("#author-ready-label"),
+  compareEditors: document.querySelector("#compare-editors"),
+  emptyTranslation: document.querySelector("#empty-translation"),
   editorHelp: document.querySelector("#editor-help"),
   draftStatus: document.querySelector("#draft-status"),
   verificationStatus: document.querySelector("#verification-status"),
@@ -187,6 +230,12 @@ const state = {
   summary: null,
   drafts: Object.fromEntries(DRAFT_KEYS.map((key) => [key, ""])),
   initialDrafts: Object.fromEntries(DRAFT_KEYS.map((key) => [key, ""])),
+  documents: Object.fromEntries(DRAFT_KEYS.map((key) => [key, createDraftDocument(key)])),
+  activeLocale: "ko-KR",
+  provider: "grok",
+  readiness: { grok: null, codex: null },
+  translateLoading: false,
+  translateMode: null,
   baseline: null,
   preflight: createDefaultPreflight(),
   baselineLoading: false,
@@ -195,41 +244,290 @@ const state = {
 };
 
 let toastTimer = 0;
+let translateElapsedTimer = 0;
+let translateAbort = null;
 
 function countCharacters(value) {
   return Array.from(value).length;
 }
 
+function activeDocument() {
+  return state.documents[state.activeDraft];
+}
+
+function localeEntry(locale) {
+  return activeDocument()?.locales?.[locale] ?? null;
+}
+
+function activePublishFields() {
+  if (state.activeLocale === "en-US") return localeEntry("en-US")?.publishFields ?? null;
+  return localeEntry("ko-KR")?.publishFields ?? activeDocument()?.publishFields ?? {};
+}
+
+function translationFacts() {
+  return state.summary ? translationFactsFromSummary(state.summary) : {};
+}
+
+function providerLabel() {
+  if (state.provider === "codex") return "Codex OAuth";
+  if (state.provider === "auto") return "자동 추천";
+  return "Grok OAuth";
+}
+
+function currentAuthorInputs(channel = state.activeDraft) {
+  return state.documents[channel]?.internal?.authorInputs ?? {};
+}
+
+function missingAuthorInputKeys(channel = state.activeDraft) {
+  return requiredAuthorInputs(channel).filter((key) => !String(currentAuthorInputs(channel)[key] ?? "").trim());
+}
+
+function newRequestId() {
+  return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function cloneLocale(entry) {
+  if (!entry) return null;
+  return {
+    ...entry,
+    publishFields: entry.publishFields ? structuredClone(entry.publishFields) : entry.publishFields,
+  };
+}
+
+function readinessLabel(entry) {
+  if (!entry) return "확인 중";
+  if (entry.status === "ready") return "준비됨";
+  if (entry.status === "login_required") return "로그인 필요";
+  if (entry.status === "unavailable") return "미설치";
+  if (entry.status === "auth_unknown") return "인증 미확인";
+  if (entry.status === "installed") return "설치됨";
+  return entry.status || "확인 불가";
+}
+
+function completionLabel(status) {
+  return {
+    ready: "승인 후보",
+    needs_review: "검토 필요",
+    needs_input: "입력 필요",
+    manual_only: "직접 작성",
+    stale: "오래됨",
+  }[status] ?? status;
+}
+
+function lengthRuleText(profile) {
+  const rules = profile?.lengthRules ?? {};
+  const parts = [];
+  if (rules.bodyWeighted) parts.push(`본문 ${rules.bodyWeighted} 가중자`);
+  if (rules.segmentWeighted) parts.push(`구간 ${rules.segmentWeighted} 가중자`);
+  if (rules.taglineChars) parts.push(`태그라인 ${rules.taglineChars}자`);
+  if (rules.descriptionChars) parts.push(`설명 ${rules.descriptionChars}자`);
+  if (profile?.ctaPolicy) parts.push(profile.ctaPolicy);
+  return parts.join(" · ") || "채널 정책을 확인하세요";
+}
+
+function setProvider(provider) {
+  state.provider = provider === "codex" || provider === "auto" ? provider : "grok";
+  renderProviderControls();
+}
+
+function isTranslationAllowed(channel) {
+  const spec = channelSpec(channel);
+  return Boolean(spec && spec.translationPolicy !== "disabled" && channel !== "showHn");
+}
+
+function sourceFieldsFor(channel) {
+  const document = state.documents[channel];
+  return document?.locales?.["ko-KR"]?.publishFields ?? document?.publishFields ?? {};
+}
+
+function hasTranslatableSource(channel) {
+  const fields = sourceFieldsFor(channel);
+  if (!matchesFieldContract(channel, fields)) return false;
+  return validatePublish(channel, fields, { facts: translationFacts() }).ok;
+}
+
+function needsEnglish(channel) {
+  const english = state.documents[channel]?.locales?.["en-US"];
+  return !english || Boolean(english.stale);
+}
+
+function batchTranslateTargets() {
+  return DRAFT_KEYS.filter((key) => (
+    isTranslationAllowed(key)
+    && hasTranslatableSource(key)
+    && needsEnglish(key)
+    && missingAuthorInputKeys(key).length === 0
+  ));
+}
+
+function setTranslateStatus(text, tone = "neutral") {
+  elements.translateStatus.textContent = text;
+  elements.translateStatus.dataset.tone = tone;
+}
+
+function startTranslateClock(render) {
+  clearInterval(translateElapsedTimer);
+  render();
+  translateElapsedTimer = setInterval(render, 1000);
+}
+
+function stopTranslateClock() {
+  clearInterval(translateElapsedTimer);
+}
+
+async function requestJson(url, body, { signal } = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  let payload;
+  try { payload = await response.json(); } catch { throw new Error("서버 응답을 읽지 못했습니다."); }
+  if (!response.ok) throw new Error(payload?.error?.message || "요청에 실패했습니다.");
+  return payload;
+}
+
+function applyComposedLocale(channel, payload) {
+  const document = state.documents[channel];
+  if (!document.locales) document.locales = {};
+  const existing = document.locales["en-US"];
+  if (existing) {
+    document.internal = { ...document.internal, previousEnglish: cloneLocale(existing) };
+  }
+  document.locales["en-US"] = {
+    publishFields: payload.publishFields,
+    englishSummary: payload.summary ?? payload.englishSummary,
+    updatedAt: payload.composedAt ?? payload.translatedAt ?? new Date().toISOString(),
+    sourceHash: payload.sourceHash,
+    stale: false,
+    composedHash: hashPublishFields(payload.publishFields),
+    provider: payload.provider,
+    status: payload.status,
+    validation: payload.validation,
+    evidence: payload.evidence ?? [],
+  };
+}
+
+async function requestTranslation(channel, { signal } = {}) {
+  const sourceFields = sourceFieldsFor(channel);
+  const payload = await requestJson("/api/v1/drafts/compose", {
+    schemaVersion: "viral-compose-request/v1",
+    requestId: newRequestId(),
+    idempotencyKey: newRequestId(),
+    channel,
+    sourceLocale: "ko-KR",
+    targetLocale: "en-US",
+    sourceHash: hashPublishFields(sourceFields),
+    facts: translationFacts(),
+    sourceDraft: { publishFields: sourceFields },
+    publishFields: sourceFields,
+    authorInputs: currentAuthorInputs(channel),
+    provider: state.provider,
+  }, { signal });
+  if (payload.status === "needs_input" || !payload.publishFields) {
+    const missing = (payload.missingInputs ?? missingAuthorInputKeys(channel)).join(", ");
+    throw new Error(missing ? `작성자 입력이 필요합니다: ${missing}` : "작성자 입력이 필요합니다.");
+  }
+  applyComposedLocale(channel, payload);
+  return payload;
+}
+
+function hydrateDocuments(items) {
+  return Object.fromEntries(DRAFT_KEYS.map((key) => {
+    const document = items?.[key] ?? createDraftDocument(key);
+    const publishFields = document.publishFields ?? {};
+    return [key, {
+      ...document,
+      locales: {
+        "ko-KR": {
+          publishFields,
+          updatedAt: new Date().toISOString(),
+          sourceHash: hashPublishFields(publishFields),
+        },
+        ...document.locales,
+      },
+    }];
+  }));
+}
+
+function documentsFromLegacyDrafts(drafts) {
+  return Object.fromEntries(DRAFT_KEYS.map((key) => {
+    const text = drafts[key] ?? "";
+    const publishFields = key === "showHn" ? {} : parsePublish(key, text);
+    return [key, {
+      ...createDraftDocument(key, { publishFields }),
+      locales: {
+        "ko-KR": {
+          publishFields,
+          updatedAt: new Date().toISOString(),
+          sourceHash: hashPublishFields(publishFields),
+          legacyMarkdown: text,
+        },
+      },
+    }];
+  }));
+}
+
+function currentCopyText() {
+  const fields = activePublishFields();
+  if (!fields) return "";
+  return serializePublish(state.activeDraft, fields);
+}
+
+function currentCompletionStatus() {
+  const document = activeDocument();
+  const english = localeEntry("en-US");
+  const missingTranslation = state.activeLocale === "en-US" && !english;
+  const fields = activePublishFields() ?? {};
+  const validation = missingTranslation || state.activeDraft === "showHn"
+    ? { ok: true, issues: [] }
+    : validatePublish(state.activeDraft, fields, { facts: translationFacts() });
+  return displayCompletionStatus(document, {
+    locale: state.activeLocale,
+    stale: Boolean(english?.stale),
+    missingTranslation,
+    validationOk: validation.ok,
+    authorInputs: currentAuthorInputs(),
+  });
+}
+
 function renderDraftValidation() {
-  const value = elements.editor.value;
+  const document = activeDocument();
+  const english = localeEntry("en-US");
+  const missingTranslation = state.activeLocale === "en-US" && !english;
+  const fields = activePublishFields() ?? {};
+  const validation = missingTranslation || state.activeDraft === "showHn"
+    ? { ok: true, issues: [] }
+    : validatePublish(state.activeDraft, fields, { facts: translationFacts() });
+  const completionStatus = currentCompletionStatus();
+  const block = state.phase !== "success"
+    ? "콘텐츠를 먼저 생성하세요."
+    : copyBlockReason(document, {
+      locale: state.activeLocale,
+      stale: Boolean(english?.stale),
+      missingTranslation,
+      validation,
+      completionStatus,
+      authorInputs: currentAuthorInputs(),
+    });
+  if (elements.completionBadge) {
+    elements.completionBadge.textContent = completionLabel(completionStatus);
+  }
+
   if (X_SINGLE_KEYS.has(state.activeDraft)) {
-    const weightedLength = countXWeightedCharacters(value.trim());
-    const valid = weightedLength <= 280;
-    elements.characterCount.textContent = `${weightedLength.toLocaleString("ko-KR")} / 280 가중자`;
-    elements.verificationStatus.textContent = valid
-      ? "X 형식 검사 통과 · 게시 전 문구 확인 필요"
-      : "X 280 가중자 초과 · 줄인 뒤 복사할 수 있습니다";
-    elements.draftStatus.dataset.state = valid ? "ready" : "error";
-    elements.copyButton.disabled = state.phase !== "success" || !valid;
-    return;
-  }
-
-  if (state.activeDraft === "xThread") {
-    const segments = value.split(/\n\s*---\s*\n/u).map((segment) => segment.trim()).filter(Boolean);
-    const lengths = segments.map((segment) => countXWeightedCharacters(segment));
-    const maximum = lengths.length ? Math.max(...lengths) : 0;
-    const valid = segments.length > 0 && maximum <= 280;
+    elements.characterCount.textContent = `${countXWeightedCharacters(String(fields.body ?? "").trim()).toLocaleString("ko-KR")} / 280 가중자`;
+  } else if (state.activeDraft === "xThread") {
+    const segments = Array.isArray(fields.segments) ? fields.segments : [];
+    const maximum = segments.length ? Math.max(...segments.map((segment) => countXWeightedCharacters(segment))) : 0;
     elements.characterCount.textContent = `${maximum.toLocaleString("ko-KR")} / 280 최대`;
-    elements.verificationStatus.textContent = valid
-      ? `X 스레드 ${segments.length}개 구간 검사 통과`
-      : "X 스레드 구간 중 280 가중자 초과 또는 빈 원고";
-    elements.draftStatus.dataset.state = valid ? "ready" : "error";
-    elements.copyButton.disabled = state.phase !== "success" || !valid;
-    return;
+  } else if (state.activeDraft === "productHunt") {
+    elements.characterCount.textContent = `태그라인 ${countCharacters(fields.tagline ?? "")}/60 · 설명 ${countCharacters(fields.description ?? "")}/260`;
+  } else {
+    elements.characterCount.textContent = `${countCharacters(currentCopyText()).toLocaleString("ko-KR")}자`;
   }
 
-  elements.characterCount.textContent = `${countCharacters(value).toLocaleString("ko-KR")}자`;
-  const validations = {
+  const fallback = {
     threads: ["Threads · 대표 이미지와 최종 말투 확인 필요", "ready"],
     reddit: ["Reddit · 서브레딧과 계정·규칙 확인 전 게시 금지", "warning"],
     linkedin: ["LinkedIn · 전문적 맥락과 최종 말투 확인 필요", "ready"],
@@ -245,12 +543,27 @@ function renderDraftValidation() {
     shorts: ["YouTube Shorts · 실제 1080×1920 영상 검수 필요", "warning"],
     showHn: ["Show HN · 앞선 피드백 반영과 작성자 영어 검토 전 보류", "warning"],
   };
-  const [message, status] = validations[state.activeDraft] || ["수동 검토가 필요합니다.", "warning"];
-  elements.verificationStatus.textContent = message;
-  elements.draftStatus.dataset.state = status;
-  const held = /(?:상태|Status):\s*`?HOLD\b/iu.test(value);
-  elements.copyButton.disabled = state.phase !== "success" || held;
-  elements.copyButton.title = held ? "HOLD 표시를 해제할 수 있을 만큼 사람이 보강한 뒤 복사하세요." : "현재 작업본 전체를 복사합니다.";
+
+  if (block) {
+    elements.verificationStatus.textContent = block;
+    elements.draftStatus.dataset.state = validation.ok ? "warning" : "error";
+  } else if (X_SINGLE_KEYS.has(state.activeDraft)) {
+    elements.verificationStatus.textContent = "X 형식 검사 통과 · 게시 전 문구 확인 필요";
+    elements.draftStatus.dataset.state = "ready";
+  } else if (state.activeDraft === "xThread") {
+    const segments = Array.isArray(fields.segments) ? fields.segments : [];
+    elements.verificationStatus.textContent = `X 스레드 ${segments.length}개 구간 검사 통과`;
+    elements.draftStatus.dataset.state = "ready";
+  } else {
+    const [message, status] = fallback[state.activeDraft] || ["수동 검토가 필요합니다.", "warning"];
+    elements.verificationStatus.textContent = message;
+    elements.draftStatus.dataset.state = status;
+  }
+
+  const canCopy = state.phase === "success" && !block;
+  elements.copyButton.disabled = !canCopy;
+  elements.downloadButton.disabled = !canCopy;
+  elements.copyButton.title = block || "현재 게시 필드만 복사합니다.";
 }
 
 function setFeedback(message = "", tone = "neutral") {
@@ -351,13 +664,25 @@ function migrateStoredWorkspace(value) {
   const expandDrafts = (drafts) => Object.fromEntries(
     DRAFT_KEYS.map((key) => [key, typeof drafts[key] === "string" ? drafts[key] : ""]),
   );
-  return {
+  return upgradeWorkspaceToV4({
     ...workspace,
-    version: STORAGE_VERSION,
+    version: 3,
     drafts: expandDrafts(workspace.drafts),
     initialDrafts: expandDrafts(workspace.initialDrafts),
     activeDraft: DRAFT_CONFIG[workspace.activeDraft] ? workspace.activeDraft : "x1",
     migratedFrom: workspace.migratedFrom || 2,
+  });
+}
+
+function upgradeWorkspaceToV4(workspace) {
+  if (!isRecord(workspace) || workspace.version === STORAGE_VERSION) return workspace;
+  if (workspace.version !== 3) return workspace;
+  return {
+    ...workspace,
+    version: STORAGE_VERSION,
+    documents: documentsFromLegacyDrafts(workspace.drafts),
+    activeLocale: "ko-KR",
+    migratedFrom: workspace.migratedFrom || 3,
   };
 }
 
@@ -393,7 +718,9 @@ function isStoredWorkspace(value) {
     return false;
   }
 
-  return typeof value.summary.name === "string" && typeof value.summary.description === "string";
+  return typeof value.summary.name === "string"
+    && typeof value.summary.description === "string"
+    && isRecord(value.documents);
 }
 
 function createWorkspaceSnapshot() {
@@ -406,7 +733,10 @@ function createWorkspaceSnapshot() {
     summary: state.summary,
     drafts: state.drafts,
     initialDrafts: state.initialDrafts,
+    documents: state.documents,
     activeDraft: state.activeDraft,
+    activeLocale: state.activeLocale,
+    provider: state.provider,
     baseline: state.baseline,
     preflight: state.preflight,
   };
@@ -443,7 +773,7 @@ function restoreWorkspace() {
 
   let workspace;
   try {
-    workspace = migrateStoredWorkspace(JSON.parse(stored));
+    workspace = upgradeWorkspaceToV4(migrateStoredWorkspace(JSON.parse(stored)));
   } catch {
     removeStoredWorkspace();
     return false;
@@ -456,9 +786,12 @@ function restoreWorkspace() {
   state.repository = workspace.repository;
   state.facts = workspace.facts;
   state.summary = workspace.summary;
-  state.drafts = { ...workspace.drafts };
-  state.initialDrafts = { ...workspace.initialDrafts };
+  state.documents = workspace.documents ?? documentsFromLegacyDrafts(workspace.drafts);
+  state.drafts = draftViewFromDocuments(state.documents);
+  state.initialDrafts = { ...state.drafts };
   state.activeDraft = workspace.activeDraft;
+  state.activeLocale = workspace.activeLocale === "en-US" ? "en-US" : "ko-KR";
+  state.provider = workspace.provider === "codex" || workspace.provider === "auto" ? workspace.provider : "grok";
   state.baseline = isBaseline(workspace.baseline) ? { ...workspace.baseline } : null;
   state.preflight = isPreflight(workspace.preflight) ? { ...workspace.preflight } : createDefaultPreflight();
   state.phase = "success";
@@ -470,12 +803,16 @@ function restoreWorkspace() {
   setDraftActionsEnabled(true);
   renderActiveDraft();
 
+  fetchReadiness();
+
   const savedAt = new Date(workspace.savedAt).toLocaleString("ko-KR");
   const migrationNote = workspace.migratedFrom === 1
     ? " 기존 3종 원고를 이동했으며, 전체 채널 초안은 콘텐츠 생성을 다시 눌러 만드세요."
     : workspace.migratedFrom === 2
       ? " 기존 12종 원고를 유지했으며, 신규 6종은 콘텐츠 생성을 다시 눌러 만드세요."
-      : " 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.";
+      : workspace.migratedFrom === 3
+        ? " 구조화 초안은 콘텐츠 생성을 다시 눌러 만드세요."
+        : " 최신 내용은 콘텐츠 생성을 다시 눌러 확인하세요.";
   setFeedback(`이전 작업을 복원했습니다 (${savedAt}).${migrationNote}`, "restored");
   return true;
 }
@@ -556,24 +893,180 @@ function renderPreflight() {
   elements.preflightDownloadButton.disabled = !ready;
 }
 
+function draftViewFromDocuments(documents = state.documents) {
+  return Object.fromEntries(DRAFT_KEYS.map((key) => {
+    const fields = documents[key]?.locales?.["ko-KR"]?.publishFields ?? documents[key]?.publishFields ?? {};
+    return [key, serializePublish(key, fields)];
+  }));
+}
+
+function syncDraftsFromDocuments() {
+  state.drafts = draftViewFromDocuments();
+}
+
 function updateDirtyState() {
+  syncDraftsFromDocuments();
   state.dirty = DRAFT_KEYS.some((key) => state.drafts[key] !== state.initialDrafts[key]);
 }
 
 function setDraftActionsEnabled(enabled) {
   elements.editor.disabled = !enabled;
-  elements.copyButton.disabled = !enabled;
-  elements.downloadButton.disabled = !enabled;
+  elements.translationEditor.disabled = !enabled;
+  elements.localeSelect.disabled = !enabled;
   elements.downloadAllButton.disabled = !enabled;
+  renderTranslateControls();
+  renderDraftValidation();
+}
+
+function renderReadiness() {
+  const grok = readinessLabel(state.readiness.grok);
+  const codex = readinessLabel(state.readiness.codex);
+  elements.providerReadiness.textContent = `Grok ${grok} · Codex ${codex}`;
+  const selected = state.provider === "auto"
+    ? state.readiness[preferredProvider(state.activeDraft) ?? "grok"]
+    : state.readiness[state.provider];
+  const tone = selected?.status === "ready"
+    ? "success"
+    : selected?.status === "login_required" || selected?.status === "unavailable"
+      ? "error"
+      : "neutral";
+  elements.providerReadiness.dataset.tone = tone;
+}
+
+function renderProviderControls() {
+  const manual = state.activeDraft === "showHn";
+  const enabled = state.phase === "success" && !state.translateLoading && !manual;
+  elements.providerField.hidden = manual;
+  elements.providerAuto.disabled = !enabled;
+  elements.providerGrok.disabled = !enabled;
+  elements.providerCodex.disabled = !enabled;
+  elements.providerAuto.setAttribute("aria-pressed", state.provider === "auto" ? "true" : "false");
+  elements.providerGrok.setAttribute("aria-pressed", state.provider === "grok" ? "true" : "false");
+  elements.providerCodex.setAttribute("aria-pressed", state.provider === "codex" ? "true" : "false");
+  renderReadiness();
+}
+
+function renderConstraintSummary() {
+  const profile = channelProfile(state.activeDraft);
+  const recommended = preferredProvider(state.activeDraft);
+  elements.constraintProvider.textContent = recommended
+    ? `${recommended === "codex" ? "Codex OAuth" : "Grok OAuth"} (자동 추천)`
+    : "사용 안 함";
+  elements.constraintFields.textContent = (profile?.publishFields ?? []).join(", ") || "게시 필드 없음";
+  elements.constraintLength.textContent = lengthRuleText(profile);
+  const facts = translationFacts();
+  const locks = [facts.name, facts.license, facts.demoUrl, facts.repositoryUrl].filter(Boolean);
+  elements.constraintFacts.textContent = locks.join(" · ") || "저장소 분석 후 표시됩니다.";
+}
+
+function renderAuthorInputs() {
+  const defs = authorInputDefs(state.activeDraft);
+  const manual = state.activeDraft === "showHn";
+  elements.authorInputs.hidden = manual || defs.length === 0;
+  elements.authorInputs.replaceChildren();
+  if (manual || defs.length === 0) return;
+  const values = currentAuthorInputs();
+  for (const def of defs) {
+    const label = document.createElement("label");
+    const title = document.createElement("span");
+    title.className = "section-label";
+    title.textContent = def.label;
+    const input = document.createElement("textarea");
+    input.dataset.authorInput = def.key;
+    input.value = values[def.key] ?? "";
+    input.disabled = state.phase !== "success" || state.translateLoading;
+    input.setAttribute("aria-describedby", `author-hint-${def.key}`);
+    input.addEventListener("input", () => {
+      const document = activeDocument();
+      document.internal = {
+        ...document.internal,
+        authorInputs: { ...currentAuthorInputs(), [def.key]: input.value },
+      };
+      const missing = missingAuthorInputKeys();
+      const busy = state.translateLoading;
+      const ready = state.phase === "success";
+      elements.translateButton.disabled = !ready || (busy && state.translateMode !== "one") || missing.length > 0;
+      renderDraftValidation();
+      persistWorkspace();
+    });
+    const hint = document.createElement("p");
+    hint.className = "author-hint";
+    hint.id = `author-hint-${def.key}`;
+    hint.textContent = def.hint;
+    label.append(title, input, hint);
+    elements.authorInputs.append(label);
+  }
+}
+
+function renderValidationIssues(issues = []) {
+  const review = activeDocument()?.internal?.lastReview;
+  const items = [
+    ...issues.map((issue) => ({
+      group: issue.group ?? "format",
+      text: issue.message ?? String(issue),
+    })),
+    ...(review?.issues ?? []).map((text) => ({ group: "policy", text: `검토: ${text}` })),
+    ...(review?.suggestions ?? []).map((text) => ({ group: "format", text: `제안: ${text}` })),
+  ];
+  elements.validationIssues.hidden = items.length === 0;
+  elements.validationIssues.replaceChildren();
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.dataset.group = item.group;
+    row.textContent = item.text;
+    elements.validationIssues.append(row);
+  }
+}
+
+function renderTranslateControls() {
+  const document = activeDocument();
+  const disabled = document?.translationPolicy === "disabled" || state.activeDraft === "showHn";
+  const busy = state.translateLoading;
+  const ready = state.phase === "success";
+  const missingInputs = missingAuthorInputKeys();
+  elements.composeWorkbench.hidden = disabled;
+  elements.translateButton.hidden = disabled;
+  elements.reviewButton.hidden = disabled;
+  elements.revalidateButton.hidden = disabled;
+  elements.revertButton.hidden = disabled;
+  elements.translateButton.disabled = disabled || !ready || (busy && state.translateMode !== "one") || missingInputs.length > 0;
+  elements.translateButton.textContent = busy && state.translateMode === "one" ? "중지" : "생성";
+  elements.reviewButton.disabled = disabled || !ready || busy || !localeEntry("en-US");
+  elements.revalidateButton.disabled = disabled || !ready || busy;
+  elements.revertButton.disabled = disabled || !ready || busy || (!localeEntry("en-US") && !document?.internal?.previousEnglish);
+  elements.translateAllButton.disabled = !ready || (busy && state.translateMode !== "batch");
+  elements.translateAllButton.textContent = busy && state.translateMode === "batch" ? "일괄 번역 중지" : "허용 채널 일괄 번역";
+  const holdLike = document?.status === "hold" || document?.translationPolicy === "draftOnly";
+  elements.authorReadyLabel.hidden = !holdLike || disabled;
+  elements.authorReady.disabled = !ready;
+  elements.authorReady.checked = Boolean(document?.internal?.authorReady);
+  renderProviderControls();
+  renderConstraintSummary();
+  renderAuthorInputs();
 }
 
 function renderActiveDraft({ focus = false } = {}) {
   const config = DRAFT_CONFIG[state.activeDraft];
-  elements.editor.value = state.drafts[state.activeDraft];
+  const source = localeEntry("ko-KR");
+  const english = localeEntry("en-US");
+  elements.editor.value = source ? serializePublish(state.activeDraft, source.publishFields) : "";
+  elements.translationEditor.value = english ? serializePublish(state.activeDraft, english.publishFields) : "";
+  elements.emptyTranslation.hidden = Boolean(english) || state.activeDraft === "showHn";
+  elements.compareEditors.classList.toggle("is-empty-en", !english);
+  elements.compareEditors.classList.toggle("is-mobile-ko", state.activeLocale !== "en-US");
+  elements.compareEditors.classList.toggle("is-mobile-en", state.activeLocale === "en-US");
+  elements.localeSelect.value = state.activeLocale;
   elements.draftLabel.textContent = config.label;
   elements.draftEvidence.textContent = config.evidence;
-  elements.editorHelp.textContent = config.help;
+  elements.editorHelp.textContent = state.activeDraft === "showHn"
+    ? "생성 제목·본문을 제공하지 않습니다. 작성자가 처음부터 직접 써야 합니다."
+    : config.help;
+  renderTranslateControls();
   renderDraftValidation();
+  renderValidationIssues([
+    ...(english?.validation?.issues ?? []),
+    ...(missingAuthorInputKeys().map((key) => ({ group: "policy", message: `작성자 입력이 필요합니다: ${key}` }))),
+  ]);
 
   for (const tab of elements.tabs) {
     const active = tab.dataset.draft === state.activeDraft;
@@ -581,7 +1074,10 @@ function renderActiveDraft({ focus = false } = {}) {
     tab.tabIndex = active ? 0 : -1;
     if (active) elements.draftPanel.setAttribute("aria-labelledby", tab.id);
   }
-  if (focus) elements.editor.focus();
+  if (focus) {
+    if (state.activeLocale === "en-US") elements.translationEditor.focus();
+    else elements.editor.focus();
+  }
 }
 
 function selectDraft(key, options) {
@@ -634,7 +1130,11 @@ async function copyText(value) {
 function buildBundle() {
   const sections = DRAFT_KEYS.map((key) => {
     const title = DRAFT_CONFIG[key].label.replace(/ 원고$/, "");
-    return `## ${title}\n\n${state.drafts[key].trim()}`;
+    const fields = state.documents[key]?.locales?.[state.activeLocale]?.publishFields
+      ?? state.documents[key]?.locales?.["ko-KR"]?.publishFields
+      ?? state.documents[key]?.publishFields
+      ?? {};
+    return `## ${title}\n\n${serializePublish(key, fields).trim()}`;
   });
   return `# ${state.summary.name} 바이럴 콘텐츠 패키지\n\n${sections.join("\n\n---\n\n")}\n`;
 }
@@ -670,7 +1170,7 @@ ${checklist}
 
 ## 최종 커뮤니티 원고
 
-${state.drafts.geeknews.trim()}
+${serializePublish("geeknews", state.documents.geeknews?.locales?.["ko-KR"]?.publishFields ?? state.documents.geeknews?.publishFields ?? {}).trim()}
 
 ## 게시 원칙
 
@@ -721,6 +1221,24 @@ async function requestBaseline(repoUrl) {
   return payload;
 }
 
+async function fetchReadiness({ probe = false } = {}) {
+  try {
+    const response = await fetch(`/api/v1/providers/readiness${probe ? "?probe=1" : ""}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload?.error?.message || "엔진 상태를 확인하지 못했습니다.");
+    state.readiness = {
+      grok: payload.grok ?? null,
+      codex: payload.codex ?? null,
+    };
+  } catch (error) {
+    state.readiness = { grok: { status: "unavailable" }, codex: { status: "unavailable" } };
+    elements.providerReadiness.textContent = error.message || "엔진 상태를 확인하지 못했습니다.";
+    elements.providerReadiness.dataset.tone = "error";
+    return;
+  }
+  renderReadiness();
+}
+
 async function generateRepository(repoUrl) {
   setLoading(true);
   setFeedback("GitHub 저장소와 README를 확인하고 있습니다.");
@@ -729,8 +1247,10 @@ async function generateRepository(repoUrl) {
     state.repository = payload.repository;
     state.facts = payload.facts;
     state.summary = payload.summary;
-    state.drafts = { ...payload.drafts };
-    state.initialDrafts = { ...payload.drafts };
+    state.documents = hydrateDocuments(payload.documents?.items ?? {});
+    state.drafts = draftViewFromDocuments(state.documents);
+    state.initialDrafts = { ...state.drafts };
+    state.activeLocale = "ko-KR";
     state.baseline = isBaseline(payload.baseline) ? { ...payload.baseline } : null;
     state.preflight = createDefaultPreflight();
     state.activeDraft = "x1";
@@ -740,6 +1260,7 @@ async function generateRepository(repoUrl) {
     setDraftActionsEnabled(true);
     setLoading(false);
     renderActiveDraft();
+    fetchReadiness();
 
     const persisted = persistWorkspace();
     if (persisted) {
@@ -793,8 +1314,31 @@ for (const tab of elements.tabs) {
   });
 }
 
+function updateSourceFromEditor() {
+  const document = activeDocument();
+  if (!document.locales) document.locales = {};
+  const publishFields = parsePublish(state.activeDraft, elements.editor.value);
+  const sourceHash = hashPublishFields(publishFields);
+  document.publishFields = publishFields;
+  document.locales["ko-KR"] = { publishFields, updatedAt: new Date().toISOString(), sourceHash };
+  if (document.locales["en-US"] && document.locales["en-US"].sourceHash !== sourceHash) {
+    document.locales["en-US"] = { ...document.locales["en-US"], stale: true };
+  }
+}
+
+function updateTranslationFromEditor() {
+  const document = activeDocument();
+  const existing = localeEntry("en-US");
+  if (!existing) return;
+  document.locales["en-US"] = {
+    ...existing,
+    publishFields: parsePublish(state.activeDraft, elements.translationEditor.value),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 elements.editor.addEventListener("input", () => {
-  state.drafts[state.activeDraft] = elements.editor.value;
+  updateSourceFromEditor();
   renderDraftValidation();
   if (state.activeDraft === "geeknews" && state.preflight.finalCopyReviewed) {
     state.preflight.finalCopyReviewed = false;
@@ -804,10 +1348,265 @@ elements.editor.addEventListener("input", () => {
   persistWorkspace();
 });
 
+elements.translationEditor.addEventListener("input", () => {
+  updateTranslationFromEditor();
+  renderDraftValidation();
+  updateDirtyState();
+  persistWorkspace();
+});
+
+elements.localeSelect.addEventListener("change", () => {
+  state.activeLocale = elements.localeSelect.value === "en-US" ? "en-US" : "ko-KR";
+  renderActiveDraft();
+  persistWorkspace();
+});
+
+elements.providerAuto.addEventListener("click", () => {
+  if (state.translateLoading) return;
+  setProvider("auto");
+  persistWorkspace();
+});
+
+elements.providerGrok.addEventListener("click", () => {
+  if (state.translateLoading) return;
+  setProvider("grok");
+  persistWorkspace();
+});
+
+elements.providerCodex.addEventListener("click", () => {
+  if (state.translateLoading) return;
+  setProvider("codex");
+  persistWorkspace();
+});
+
+elements.authorReady.addEventListener("change", () => {
+  const document = activeDocument();
+  document.internal = { ...document.internal, authorReady: elements.authorReady.checked };
+  renderDraftValidation();
+  persistWorkspace();
+});
+
+elements.translateButton.addEventListener("click", async () => {
+  if (state.phase !== "success") return;
+  if (state.translateLoading && state.translateMode === "one") {
+    translateAbort?.abort();
+    return;
+  }
+  if (state.translateLoading) return;
+  const document = activeDocument();
+  if (!isTranslationAllowed(state.activeDraft)) return;
+  if (missingAuthorInputKeys().length > 0) {
+    setTranslateStatus(`작성자 입력이 필요합니다: ${missingAuthorInputKeys().join(", ")}`, "error");
+    renderAuthorInputs();
+    return;
+  }
+  const english = localeEntry("en-US");
+  const editedEnglish = Boolean(
+    english?.publishFields
+    && english.composedHash
+    && hashPublishFields(english.publishFields) !== english.composedHash,
+  );
+  if (editedEnglish && !window.confirm("수정 중인 영어 원고를 새 완성본으로 바꿀까요? 이전 결과는 되돌리기로 복구할 수 있습니다.")) {
+    return;
+  }
+  state.translateLoading = true;
+  state.translateMode = "one";
+  translateAbort = new AbortController();
+  const startedAt = Date.now();
+  startTranslateClock(() => {
+    const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    setTranslateStatus(seconds === 0
+      ? `${providerLabel()} 엔진으로 완성 원고를 구성하고 있습니다.`
+      : `${providerLabel()} 엔진으로 완성 원고를 구성하고 있습니다. ${seconds}초`);
+  });
+  renderTranslateControls();
+  const previousEnglish = cloneLocale(localeEntry("en-US"));
+  try {
+    await requestTranslation(state.activeDraft, { signal: translateAbort.signal });
+    state.activeLocale = "en-US";
+    setTranslateStatus("완성 원고를 새 개정으로 저장했습니다. 원문과 비교해 수정하세요.", "success");
+    renderActiveDraft();
+    persistWorkspace();
+  } catch (error) {
+    if (previousEnglish) document.locales["en-US"] = previousEnglish;
+    else delete document.locales["en-US"];
+    if (error.name === "AbortError") {
+      setTranslateStatus("생성을 중지했습니다. 편집 중인 원고는 그대로입니다.", "error");
+    } else {
+      setTranslateStatus(error.message || "완성 원고 생성에 실패했습니다.", "error");
+    }
+    renderActiveDraft();
+  } finally {
+    stopTranslateClock();
+    translateAbort = null;
+    state.translateLoading = false;
+    state.translateMode = null;
+    renderTranslateControls();
+  }
+});
+
+elements.reviewButton.addEventListener("click", async () => {
+  if (state.phase !== "success" || state.translateLoading) return;
+  const english = localeEntry("en-US");
+  if (!english) {
+    setTranslateStatus("검토할 영어 원고가 없습니다. 먼저 생성하세요.", "error");
+    return;
+  }
+  state.translateLoading = true;
+  state.translateMode = "review";
+  translateAbort = new AbortController();
+  setTranslateStatus(`${providerLabel()} 엔진으로 비게시 검토를 요청하고 있습니다.`);
+  renderTranslateControls();
+  try {
+    const payload = await requestJson("/api/v1/drafts/review", {
+      requestId: newRequestId(),
+      channel: state.activeDraft,
+      provider: state.provider,
+      sourceLocale: "ko-KR",
+      targetLocale: "en-US",
+      publishFields: english.publishFields,
+      facts: translationFacts(),
+    }, { signal: translateAbort.signal });
+    const document = activeDocument();
+    document.internal = {
+      ...document.internal,
+      lastReview: {
+        provider: payload.provider,
+        issues: payload.issues ?? [],
+        suggestions: payload.suggestions ?? [],
+      },
+    };
+    setTranslateStatus("검토 이슈만 저장했습니다. 게시 필드는 바꾸지 않았습니다.", "success");
+    renderActiveDraft();
+    persistWorkspace();
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      setTranslateStatus(error.message || "검토 요청에 실패했습니다.", "error");
+    }
+    renderActiveDraft();
+  } finally {
+    translateAbort = null;
+    state.translateLoading = false;
+    state.translateMode = null;
+    renderTranslateControls();
+  }
+});
+
+elements.revalidateButton.addEventListener("click", async () => {
+  if (state.phase !== "success" || state.translateLoading) return;
+  if (state.activeDraft === "showHn") return;
+  try {
+    const payload = await requestJson("/api/v1/drafts/validate", {
+      channel: state.activeDraft,
+      facts: translationFacts(),
+      sourceDraft: { publishFields: sourceFieldsFor(state.activeDraft) },
+      publishFields: activePublishFields() ?? {},
+      authorInputs: currentAuthorInputs(),
+    });
+    const document = activeDocument();
+    const english = localeEntry("en-US");
+    if (english && state.activeLocale === "en-US") {
+      document.locales["en-US"] = { ...english, validation: payload.validation, status: payload.status };
+    }
+    document.internal = { ...document.internal, lastValidation: payload };
+    setTranslateStatus(payload.validation.ok ? "재검증을 통과했습니다." : "재검증에서 이슈가 있습니다.", payload.validation.ok ? "success" : "error");
+    renderActiveDraft();
+    persistWorkspace();
+  } catch (error) {
+    setTranslateStatus(error.message || "재검증에 실패했습니다.", "error");
+  }
+});
+
+elements.revertButton.addEventListener("click", () => {
+  if (state.phase !== "success" || state.translateLoading) return;
+  const document = activeDocument();
+  const previous = document.internal?.previousEnglish;
+  if (previous) {
+    document.locales["en-US"] = cloneLocale(previous);
+    document.internal = { ...document.internal, previousEnglish: null };
+    setTranslateStatus("이전 영어 개정으로 되돌렸습니다. 원문 한국어는 그대로입니다.", "success");
+  } else if (document.locales?.["en-US"]) {
+    delete document.locales["en-US"];
+    setTranslateStatus("완성본을 제거했습니다. 원문 한국어는 그대로입니다.", "success");
+  } else {
+    setTranslateStatus("되돌릴 완성본이 없습니다.", "error");
+    return;
+  }
+  renderActiveDraft();
+  persistWorkspace();
+});
+
+elements.translateAllButton.addEventListener("click", async () => {
+  if (state.phase !== "success") return;
+  if (state.translateLoading && state.translateMode === "batch") {
+    translateAbort?.abort();
+    return;
+  }
+  if (state.translateLoading) return;
+  const targets = batchTranslateTargets();
+  if (targets.length === 0) {
+    setTranslateStatus("다시 번역할 허용 채널이 없습니다. 없거나 오래된 영어 원고만 일괄 대상입니다.", "success");
+    return;
+  }
+  state.translateLoading = true;
+  state.translateMode = "batch";
+  translateAbort = new AbortController();
+  const startedAt = Date.now();
+  const elapsed = () => Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  let saved = 0;
+  const failures = [];
+  let aborted = false;
+  renderTranslateControls();
+  try {
+    for (const [index, channel] of targets.entries()) {
+      if (translateAbort.signal.aborted) {
+        aborted = true;
+        break;
+      }
+      startTranslateClock(() => {
+        setTranslateStatus(`${index + 1}/${targets.length} · ${DRAFT_CONFIG[channel].label} · ${elapsed()}초`);
+      });
+      try {
+        await requestTranslation(channel, { signal: translateAbort.signal });
+        saved += 1;
+        if (channel === state.activeDraft) {
+          state.activeLocale = "en-US";
+          renderActiveDraft();
+        }
+        persistWorkspace();
+      } catch (error) {
+        if (error.name === "AbortError") {
+          aborted = true;
+          break;
+        }
+        failures.push(`${DRAFT_CONFIG[channel].label}: ${error.message || "실패"}`);
+      }
+    }
+  } finally {
+    stopTranslateClock();
+    translateAbort = null;
+    state.translateLoading = false;
+    state.translateMode = null;
+    renderTranslateControls();
+  }
+  if (saved > 0) state.activeLocale = "en-US";
+  renderActiveDraft();
+  persistWorkspace();
+  if (aborted) {
+    setTranslateStatus(`일괄 번역을 중지했습니다. 저장 ${saved}개, 실패 ${failures.length}개.`, saved > 0 ? "success" : "error");
+    return;
+  }
+  if (failures.length === 0) {
+    setTranslateStatus(`허용 채널 ${saved}개 영어 원고를 저장했습니다. 원문과 비교해 수정하세요.`, "success");
+    return;
+  }
+  setTranslateStatus(`저장 ${saved}개, 실패 ${failures.length}개. ${failures[0]}`, saved > 0 ? "success" : "error");
+});
+
 elements.copyButton.addEventListener("click", async () => {
   try {
-    await copyText(state.drafts[state.activeDraft]);
-    showToast("현재 작업본 전체를 복사했습니다. 서비스 입력 필드와 내부 체크를 구분하세요.");
+    await copyText(currentCopyText());
+    showToast("게시 필드만 복사했습니다. 내부 체크리스트는 포함되지 않습니다.");
   } catch {
     showToast("자동 복사에 실패했습니다. 원고를 직접 선택해 복사하세요.", "error");
     elements.editor.focus();
@@ -817,8 +1616,12 @@ elements.copyButton.addEventListener("click", async () => {
 
 elements.downloadButton.addEventListener("click", () => {
   const prefix = sanitizeFilename(state.repository?.name);
-  triggerDownload(`${prefix}-${DRAFT_CONFIG[state.activeDraft].filename}`, state.drafts[state.activeDraft]);
-  showToast("현재 원고를 Markdown으로 저장했습니다.");
+  const base = DRAFT_CONFIG[state.activeDraft].filename.replace(/\.md$/, "");
+  const filename = state.activeLocale === "en-US"
+    ? `${prefix}-${base}.en-US.md`
+    : `${prefix}-${DRAFT_CONFIG[state.activeDraft].filename}`;
+  triggerDownload(filename, currentCopyText());
+  showToast(state.activeLocale === "en-US" ? "영어 게시 필드를 Markdown으로 저장했습니다." : "현재 원고를 Markdown으로 저장했습니다.");
 });
 
 elements.downloadAllButton.addEventListener("click", () => {

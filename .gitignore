@@ -13,6 +13,15 @@ artifacts/private/
 node_modules/
 coverage/
 dist/
+__pycache__/
+*.pyc
 
 # Local browser QA session data
 .playwright-cli/
+
+# Provider CLI credentials and ephemeral workspaces
+.codex/
+.grok/auth.json
+.grok/*.sock
+viral-grok-*/
+viral-codex-*/

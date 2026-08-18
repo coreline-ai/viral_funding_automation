@@ -5,7 +5,8 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { parseArguments, run } from "../src/cli.mjs";
-import { buildProjectSummary, renderContentPack, writeContentPack } from "../src/content.mjs";
+import { buildDraftDocuments, buildProjectSummary, renderContentPack, writeContentPack } from "../src/content.mjs";
+import { CHANNEL_KEYS, publishLooksInternal, serializePublish } from "../src/drafts.mjs";
 import { countXWeightedCharacters } from "../src/x-text.mjs";
 
 const source = {
@@ -215,6 +216,20 @@ test("요약과 주요 채널 수동 게시 출시팩 24개 파일을 렌더링�
   assert.equal(files["community-post.md"], files["geeknews-show.md"]);
   assert.equal(files["long-post.md"], files["dev-article.md"]);
   assert.ok(!Object.values(files).join("\n").includes("혁신적인"));
+});
+
+test("구조화 초안은 게시 필드와 내부를 나누고 Show HN 게시 필드를 비운다", () => {
+  const items = buildDraftDocuments(buildProjectSummary(source));
+  assert.deepEqual(Object.keys(items).sort(), [...CHANNEL_KEYS].sort());
+  for (const channel of CHANNEL_KEYS) {
+    assert.equal(typeof items[channel].publishFields, "object");
+    assert.equal(typeof items[channel].internal, "object");
+    assert.ok(!publishLooksInternal(serializePublish(channel, items[channel].publishFields)));
+  }
+  assert.deepEqual(items.showHn.publishFields, {});
+  assert.equal(items.reddit.translationPolicy, "draftOnly");
+  assert.ok(items.reddit.publishFields.facts);
+  assert.ok(!("title" in items.reddit.publishFields));
 });
 
 test("X 가중 문자는 CJK·emoji를 2자, URL을 23자로 계산한다", () => {

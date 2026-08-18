@@ -190,13 +190,67 @@
                 <label class="section-label" for="draft-editor" id="draft-label">X 단일 게시물 원고</label>
                 <span class="mono" id="draft-evidence">README · VERIFIED SOURCE</span>
               </div>
-              <textarea id="draft-editor" spellcheck="true" aria-describedby="editor-help" disabled></textarea>
+              <div class="locale-toolbar">
+                <label class="locale-field">
+                  <span class="section-label">언어</span>
+                  <select id="locale-select" disabled>
+                    <option value="ko-KR">한국어 (ko-KR)</option>
+                    <option value="en-US">English (en-US)</option>
+                  </select>
+                </label>
+                <div class="provider-field" id="provider-field">
+                  <span class="section-label" id="provider-label">완성 엔진</span>
+                  <div class="provider-toggle" role="group" aria-labelledby="provider-label">
+                    <button type="button" id="provider-auto" aria-pressed="false" disabled>자동 추천</button>
+                    <button type="button" id="provider-grok" aria-pressed="true" disabled>Grok OAuth</button>
+                    <button type="button" id="provider-codex" aria-pressed="false" disabled>Codex OAuth</button>
+                  </div>
+                  <p class="readiness-line" id="provider-readiness" role="status">엔진 상태를 확인하는 중</p>
+                </div>
+                <div class="translate-actions" id="compose-actions">
+                  <button class="secondary-action" id="translate-button" type="button" disabled>생성</button>
+                  <button class="secondary-action" id="review-button" type="button" disabled>검토 요청</button>
+                  <button class="secondary-action" id="revalidate-button" type="button" disabled>재검증</button>
+                  <button class="secondary-action" id="revert-button" type="button" disabled>원본으로 되돌리기</button>
+                  <button class="secondary-action" id="translate-all-button" type="button" disabled>허용 채널 일괄 번역</button>
+                </div>
+                <label class="author-ready" id="author-ready-label" hidden>
+                  <input type="checkbox" id="author-ready">
+                  <span>작성자 보강 완료</span>
+                </label>
+              </div>
+              <section class="compose-workbench" id="compose-workbench">
+                <div class="constraint-summary" id="constraint-summary">
+                  <p class="section-label">생성 전 확인</p>
+                  <dl>
+                    <div><dt>추천 엔진</dt><dd id="constraint-provider">—</dd></div>
+                    <div><dt>게시 필드</dt><dd id="constraint-fields">—</dd></div>
+                    <div><dt>길이·정책</dt><dd id="constraint-length">—</dd></div>
+                    <div><dt>잠금 사실</dt><dd id="constraint-facts">—</dd></div>
+                  </dl>
+                </div>
+                <div class="author-inputs" id="author-inputs" hidden></div>
+                <ul class="validation-issues" id="validation-issues" hidden></ul>
+              </section>
+              <p class="translate-status" id="translate-status" role="status" aria-live="polite"></p>
+              <div class="compare-editors" id="compare-editors">
+                <div class="editor-column" id="source-column">
+                  <p class="section-label">원문 ko-KR</p>
+                  <textarea id="draft-editor" spellcheck="true" aria-describedby="editor-help" disabled></textarea>
+                </div>
+                <div class="editor-column" id="translation-column">
+                  <p class="section-label">영문 en-US</p>
+                  <textarea id="translation-editor" spellcheck="true" disabled></textarea>
+                  <p class="empty-translation" id="empty-translation" hidden>아직 영어 원고가 없습니다. 원문을 대신 보여주지 않습니다.</p>
+                </div>
+              </div>
               <p class="editor-help" id="editor-help">일반 X 게시물 기준의 가중 문자 수를 확인합니다.</p>
             </div>
 
             <footer class="action-dock">
               <div class="draft-status" id="draft-status" data-state="ready">
                 <span class="signal signal-mint" aria-hidden="true"></span>
+                <span class="completion-badge mono" id="completion-badge">—</span>
                 <span id="verification-status">X 형식 검사 대기</span>
                 <span class="character-count mono" id="character-count">0 / 280 가중자</span>
               </div>

@@ -1,0 +1,157 @@
+{
+  "capturedAt": "2026-08-18T13:53:29.547Z",
+  "items": {
+    "xThread": {
+      "channel": "xThread",
+      "provider": "grok",
+      "status": "ready",
+      "sourceHash": "d5923f27",
+      "publishFields": {
+        "segments": [
+          "1/3 When READMEs and development plans pile up, files stay searchable, but how decisions, concepts, and work connect is easy to miss.\n\nAI Systems Atlas lets you inspect Markdown structure and those relations directly.",
+          "2/3 It parses Markdown with Remark AST into document, section, concept, and task nodes.\n\nPath/line-backed relations stay separate from view-layout links. Explore with constellation, nebula, and orbit views.",
+          "3/3 The public demo is a login-free, read-only static snapshot. Markdown import and repository sync are in the local app.\n\nOn the first screen, is the evidence for relations and how to explore them clear?\n\nhttps://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        ]
+      },
+      "summary": {
+        "oneSentence": "AI Systems Atlas is a TypeScript, React, and Three.js explorer for Markdown structure and relations, with a read-only public snapshot demo.",
+        "shortIntro": "When READMEs and plans pile up, files stay searchable but links between decisions, concepts, and work are easy to lose. AI Systems Atlas parses Markdown into nodes and lets you inspect those links. The public demo is a login-free static snapshot; import and repo sync stay in the local app.",
+        "features": [
+          "Parse Markdown with Remark AST into document, section, concept, and task nodes",
+          "Separate path/line-backed relations from view-layout links",
+          "Explore with constellation, nebula, and orbit views",
+          "Public demo is a login-free read-only static snapshot",
+          "Markdown import and repository sync are available in the local app"
+        ],
+        "demoBoundary": "The public demo is a login-free, read-only static snapshot. Markdown import and repository sync are for the local app, not the hosted demo."
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    },
+    "geeknews": {
+      "channel": "geeknews",
+      "provider": "codex",
+      "status": "ready",
+      "sourceHash": "af416fcf",
+      "publishFields": {
+        "title": "AI Systems Atlas – Open-source exploration of Markdown documents as a source-grounded 3D knowledge graph",
+        "body": "AI Systems Atlas is a local-first knowledge graph web app that parses README and development-plan Markdown files into nodes and relationships, then lets you explore them with source evidence in a Three.js graph.\n\nAs README files and development plans accumulated during the project, searching files one by one made it difficult to understand how concepts and tasks were connected. I built a graph that extracts the Markdown document structure and explicitly stated relationships for direct exploration.\n\nAI Systems Atlas parses Markdown with a Remark AST and represents documents, sections, concepts, phases, and tasks as nodes. Structural and explicit relationships retain their source paths, and the browser interface provides constellation, nebula, and selected-node orbit views.\n\nThe public demo opens without login. It is a read-only static version without a production database or OAuth connection, where you can try search, filters, zoom, rotation, and node-relationship exploration.\n\n- Public demo: https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation\n- GitHub: https://github.com/coreline-ai/memory_node_graph\n- License: MIT\n- Core technologies: TypeScript, React, Three.js\n\nThe project is currently an active prototype. The public demo is a read-only version that displays only a verified static snapshot.\n\nIs the distinction between source-grounded relationships and layout-only connections clear on the first screen? When exploring a node, which source details would you want to see first?"
+      },
+      "summary": {
+        "oneSentence": "AI Systems Atlas is an open-source, local-first web app for exploring Markdown documents as a source-grounded 3D knowledge graph.",
+        "shortIntro": "It parses README and development-plan Markdown files into connected nodes and lets users explore their relationships and source paths in a Three.js graph.",
+        "features": [
+          "Parses Markdown into document, section, concept, Phase, and Task nodes",
+          "Tracks structural and explicit relationships with source paths",
+          "Provides constellation, nebula, and selected-node orbit views",
+          "Offers a public read-only demo with search, filters, zoom, rotation, and relationship exploration"
+        ],
+        "demoBoundary": "The public demo requires no login and displays only a verified static snapshot without a production database or OAuth connection."
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://github.com/coreline-ai/memory_node_graph"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        },
+        {
+          "type": "lockTerm",
+          "value": "MIT"
+        },
+        {
+          "type": "lockTerm",
+          "value": "TypeScript"
+        },
+        {
+          "type": "lockTerm",
+          "value": "React"
+        },
+        {
+          "type": "lockTerm",
+          "value": "Three.js"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    },
+    "indieHackers": {
+      "channel": "indieHackers",
+      "provider": "codex",
+      "status": "needs_review",
+      "sourceHash": "0d6fa371",
+      "publishFields": {
+        "title": "I built AI Systems Atlas and would like feedback on the first-use flow",
+        "body": "As my document collection grew, I kept losing sight of the connections between files, so I built AI Systems Atlas: a web app for exploring Markdown documents as a relational knowledge graph.\n\nIt displays links between documents as a graph. I made the hard decision to leave out editing and open a read-only public demo first.\n\nBuilt with TypeScript, React, and Three.js. Licensed under MIT.\n\nRepository: https://github.com/coreline-ai/memory_node_graph\nDemo: https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation\n\nWhat, if anything, feels confusing when you first open the demo?"
+      },
+      "summary": {
+        "oneSentence": "AI Systems Atlas is a web app for exploring Markdown documents as a relational knowledge graph.",
+        "shortIntro": "As my document collection grew, I kept losing sight of the connections between files, so I built a graph explorer.",
+        "features": [
+          "Displays links between documents as a graph."
+        ],
+        "demoBoundary": "I left out editing and opened a read-only public demo first."
+      },
+      "validation": {
+        "ok": true,
+        "issues": []
+      },
+      "evidence": [
+        {
+          "type": "lockTerm",
+          "value": "AI Systems Atlas"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://github.com/coreline-ai/memory_node_graph"
+        },
+        {
+          "type": "lockTerm",
+          "value": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+        },
+        {
+          "type": "lockTerm",
+          "value": "MIT"
+        },
+        {
+          "type": "lockTerm",
+          "value": "TypeScript"
+        },
+        {
+          "type": "lockTerm",
+          "value": "React"
+        },
+        {
+          "type": "lockTerm",
+          "value": "Three.js"
+        }
+      ],
+      "formatOk": true,
+      "formatIssues": []
+    }
+  }
+}

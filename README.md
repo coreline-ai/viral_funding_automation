@@ -54,6 +54,7 @@ TikTok은 Shorts의 세로 영상을 재사용하는 후보로 상태를 표시�
 - [바이럴 원고 최종 채널 적합성 검토](reviews/final_channel_copy_validation_20260817.md)
 - [AI Systems Atlas 채널별 최종 교정 원고팩](campaigns/memory_node_graph/2026-08-first-launch/final/verified-channel-copy-pack.md)
 - [프로젝트 1차 종료 보고서](PROJECT_PHASE1_CLOSURE_20260817.md)
+- [영문 재구성 수직 MVP 개발 계획](dev-plan/implement_20260817_182435.md)
 
 ## 요구사항
 
@@ -74,9 +75,11 @@ npm run web
 1. 공개 GitHub URL을 입력하고 `콘텐츠 생성`을 누릅니다.
 2. 빠른 확인은 `memory_node_graph 예제로 1턴 실행`을 누릅니다.
 3. 전체 채널 상태에서 초안과 운영 게이트를 구분합니다.
-4. 18개 탭의 원고를 검토·수정한 뒤 복사하거나 Markdown으로 저장합니다.
-5. GeekNews 첫 게시를 진행할 때만 `직접 게시 전 준비`의 기준점과 5개 체크 항목을 완료합니다.
-6. 첫 게시 후 최소 72시간, 권장 7일 동안 반응을 확인한 뒤 다음 채널을 결정합니다.
+4. 18개 탭의 게시 필드를 검토·수정한 뒤 복사하거나 Markdown으로 저장합니다.
+5. 영어가 필요하면 `현재 원고 번역`을 누릅니다. 이 머신에서 이미 `grok login`된 세션을 사용하며 API Key를 넣지 않습니다.
+6. HOLD 채널은 `작성자 보강 완료` 전에는 복사되지 않습니다. Show HN은 번역하지 않습니다.
+7. GeekNews 첫 게시를 진행할 때만 `직접 게시 전 준비`의 기준점과 5개 체크 항목을 완료합니다.
+8. 첫 게시 후 최소 72시간, 권장 7일 동안 반응을 확인한 뒤 다음 채널을 결정합니다.
 
 ### 채널별 주의사항
 

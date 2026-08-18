@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { FakeGrokTextRunner } from "../src/grok-oauth-proxy.mjs";
+import { serializePublish } from "../src/drafts.mjs";
 import { createAppServer } from "../src/server.mjs";
 
 function jsonResponse(value, init = {}) {
@@ -135,15 +137,18 @@ test("공개 GitHub URL을 분석해 GUI용 사실과 주요 채널 원고 18종
       "xThread",
     ]);
     assert.match(payload.drafts.x1, /AI Systems Atlas/);
-    assert.match(payload.drafts.threads, /Threads 대화형 연속 게시/);
-    assert.match(payload.drafts.reddit, /서브레딧/);
-    assert.match(payload.drafts.facebook, /Facebook Reels/);
-    assert.match(payload.drafts.instagram, /Instagram Reels/);
+    assert.match(payload.drafts.threads, /지식 그래프|공개 데모/);
+    assert.match(payload.drafts.reddit, /프로젝트명/);
+    assert.match(payload.drafts.facebook, /Reels 캡션/);
+    assert.match(payload.drafts.instagram, /표지/);
     assert.match(payload.drafts.productHunt, /Maker 첫 댓글/);
-    assert.match(payload.drafts.peerlist, /Launchpad/);
-    assert.match(payload.drafts.indieHackers, /Build in Public/);
-    assert.match(payload.drafts.okky, /OKKY 프로젝트 소개/);
-    assert.match(payload.drafts.showHn, /HOLD/);
+    assert.match(payload.drafts.peerlist, /한 줄 소개/);
+    assert.match(payload.drafts.indieHackers, /본문/);
+    assert.match(payload.drafts.okky, /제목/);
+    assert.equal(payload.drafts.showHn, "");
+    assert.equal(payload.documents.schemaVersion, "viral-documents/v1");
+    assert.deepEqual(payload.documents.items.showHn.publishFields, {});
+    assert.equal(payload.drafts.x1, serializePublish("x1", payload.documents.items.x1.publishFields));
     assert.ok(!JSON.stringify(payload).includes("server-only-token"));
   });
 });
@@ -217,6 +222,137 @@ test("API 입력 경계와 method 오류를 안정적인 JSON으로 반환한다
     assert.equal(tooLarge.status, 413);
     assert.equal((await tooLarge.json()).error.code, "REQUEST_TOO_LARGE");
   });
+});
+
+test("readiness API는 probe 없이 installed/ready 상태를 반환한다", async () => {
+  await withServer({
+    grokRunner: new FakeGrokTextRunner(async () => ({})),
+    codexRunner: new FakeGrokTextRunner(async () => ({})),
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/v1/providers/readiness`);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.grok.id, "grok");
+    assert.equal(payload.grok.status, "ready");
+    assert.equal(payload.codex.id, "codex");
+    assert.equal(payload.codex.status, "ready");
+  });
+});
+
+test("번역 API는 fake Grok runner로 영문 필드를 반환한다", async () => {
+  await withServer({
+    grokRunner: new FakeGrokTextRunner(async (request) => {
+      assert.match(request.prompt, /AI Systems Atlas/);
+      assert.doesNotMatch(request.prompt, /"internal"/);
+      return {
+        englishSummary: { oneSentence: "Atlas.", shortIntro: "Notes.", features: [], demoBoundary: "read-only" },
+        publishFields: { body: "AI Systems Atlas" },
+      };
+    }),
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/translate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        channel: "linkedin",
+        sourceLocale: "ko-KR",
+        targetLocale: "en-US",
+        publishFields: { body: "AI Systems Atlas 소개" },
+        facts: { name: "AI Systems Atlas", repositoryUrl: "https://github.com/a/b", demoUrl: "", license: "MIT", technologies: [] },
+      }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.schemaVersion, "viral-translation/v1");
+    assert.match(payload.publishFields.body, /AI Systems Atlas/);
+  });
+});
+
+test("번역 API는 provider=codex이면 Codex runner만 실행한다", async () => {
+  let grokCalls = 0;
+  let codexCalls = 0;
+  await withServer({
+    grokRunner: new FakeGrokTextRunner(async () => {
+      grokCalls += 1;
+      throw new Error("should not run grok");
+    }),
+    codexRunner: new FakeGrokTextRunner(async (request) => {
+      codexCalls += 1;
+      assert.match(request.prompt, /AI Systems Atlas/);
+      return {
+        englishSummary: { oneSentence: "Atlas.", shortIntro: "Notes.", features: [], demoBoundary: "read-only" },
+        publishFields: { body: "AI Systems Atlas via Codex" },
+      };
+    }),
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/translate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        channel: "linkedin",
+        sourceLocale: "ko-KR",
+        targetLocale: "en-US",
+        provider: "codex",
+        publishFields: { body: "AI Systems Atlas 소개" },
+        facts: { name: "AI Systems Atlas", repositoryUrl: "https://github.com/a/b", demoUrl: "", license: "MIT", technologies: [] },
+      }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.match(payload.publishFields.body, /Codex/);
+  });
+  assert.equal(grokCalls, 0);
+  assert.equal(codexCalls, 1);
+});
+
+test("번역 API는 Show HN을 Grok 실행 전에 거부한다", async () => {
+  let called = 0;
+  await withServer({
+    grokRunner: new FakeGrokTextRunner(async () => {
+      called += 1;
+      return { englishSummary: {}, publishFields: {} };
+    }),
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/translate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        channel: "showHn",
+        sourceLocale: "ko-KR",
+        targetLocale: "en-US",
+        publishFields: {},
+        facts: {},
+      }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, "TRANSLATION_DISABLED");
+  });
+  assert.equal(called, 0);
+});
+
+test("validate API는 provider 없이 작성자 입력 누락을 반환한다", async () => {
+  let called = 0;
+  await withServer({
+    grokRunner: new FakeGrokTextRunner(async () => {
+      called += 1;
+      return { englishSummary: {}, publishFields: { body: "x" } };
+    }),
+  }, async (origin) => {
+    const response = await fetch(`${origin}/api/v1/drafts/validate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        channel: "reddit",
+        publishFields: { facts: { name: "AI Systems Atlas" } },
+        facts: { name: "AI Systems Atlas" },
+      }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.status, "needs_input");
+    assert.ok(payload.missingInputs.includes("subreddit"));
+  });
+  assert.equal(called, 0);
 });
 
 test("GitHub 404와 rate limit을 사용자용 오류로 변환한다", async () => {
