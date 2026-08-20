@@ -134,6 +134,8 @@ test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를
   assert.match(app, /\/api\/v1\/drafts\/review/);
   assert.match(app, /\/api\/v1\/drafts\/validate/);
   assert.match(app, /\/api\/v1\/providers\/readiness/);
+  assert.match(app, /\/api\/v1\/drafts\/compose/);
+  assert.match(app, /중지/);
   assert.match(app, /provider: state\.provider/);
   assert.match(app, /setProvider\("codex"\)/);
   assert.match(app, /aria-pressed/);

@@ -10,8 +10,20 @@ import { CliCodexTextRunner, CliGrokTextRunner, GrokProxyError, loadCodexRuntime
 import { preferredProvider } from "./completion.mjs";
 import { composeDraft, reviewDraft, validateDraft } from "./composition.mjs";
 import { TRANSLATE_MAX_BODY_BYTES, createDefaultTranslateQueue, translatePublishFields } from "./translation.mjs";
+import {
+  COMPOSE_RESPONSE_VERSION,
+  READINESS_SCHEMA_VERSION,
+  assertV1ComposeRequest,
+  assertV1ReviewRequest,
+  assertV1ValidateRequest,
+  attachV1Meta,
+  buildCapabilities,
+  readRequestId,
+  sanitizePublicReadiness,
+  v1ErrorEnvelope,
+} from "./api/v1/contract.mjs";
 
-const DEFAULT_HOST = "127.0.0.1";
+export const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4310;
 const MAX_BODY_BYTES = 8 * 1024;
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -205,8 +217,21 @@ export function createAppServer(options = {}) {
   const translateQueue = options.translateQueue ?? createDefaultTranslateQueue(options.env ?? process.env);
 
   return createNodeServer(async (request, response) => {
+    let requestId = "";
+    let v1 = false;
     try {
       const requestUrl = new URL(request.url ?? "/", "http://localhost");
+      v1 = requestUrl.pathname.startsWith("/api/v1/");
+      requestId = readRequestId({}, request.headers);
+
+      if (requestUrl.pathname === "/api/v1/capabilities") {
+        if (request.method !== "GET") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "GET 요청만 지원합니다.", { Allow: "GET" });
+        }
+        sendJson(response, 200, buildCapabilities(requestId));
+        return;
+      }
+
       if (requestUrl.pathname === "/api/generate") {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
@@ -230,10 +255,10 @@ export function createAppServer(options = {}) {
           grokRunner.readiness({ probeAuth }),
           codexRunner.readiness({ probeAuth }),
         ]);
-        sendJson(response, 200, {
-          grok: { id: "grok", ...grok },
-          codex: { id: "codex", ...codex },
-        });
+        sendJson(response, 200, attachV1Meta({
+          grok: sanitizePublicReadiness(grok, "grok"),
+          codex: sanitizePublicReadiness(codex, "codex"),
+        }, { schemaVersion: READINESS_SCHEMA_VERSION, requestId }));
         return;
       }
 
@@ -258,12 +283,21 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
-        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
-        const result = await composeDraft(payload, {
+        const payload = assertV1ComposeRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
+        requestId = readRequestId(payload, request.headers);
+        const abort = new AbortController();
+        request.once("close", () => {
+          if (!response.headersSent) abort.abort();
+        });
+        const result = await composeDraft({ ...payload, requestId }, {
           runners: { grok: grokRunner, codex: codexRunner },
           queue: translateQueue,
+          signal: abort.signal,
         });
-        sendJson(response, 200, result);
+        sendJson(response, 200, attachV1Meta(result, {
+          schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
+          requestId,
+        }));
         return;
       }
 
@@ -271,15 +305,24 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
-        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
+        const payload = assertV1ReviewRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
+        requestId = readRequestId(payload, request.headers);
         const requested = payload?.provider === "auto" ? "auto" : payload?.provider === "codex" ? "codex" : "grok";
         const resolved = requested === "auto" ? (preferredProvider(payload.channel) ?? "grok") : requested;
-        const result = await reviewDraft({ ...payload, provider: requested }, {
+        const abort = new AbortController();
+        request.once("close", () => {
+          if (!response.headersSent) abort.abort();
+        });
+        const result = await reviewDraft({ ...payload, provider: requested, requestId }, {
           runner: resolved === "codex" ? codexRunner : grokRunner,
           runners: { grok: grokRunner, codex: codexRunner },
           queue: translateQueue,
+          signal: abort.signal,
         });
-        sendJson(response, 200, result);
+        sendJson(response, 200, attachV1Meta(result, {
+          schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
+          requestId,
+        }));
         return;
       }
 
@@ -287,8 +330,13 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
-        const payload = await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES);
-        sendJson(response, 200, validateDraft(payload));
+        const payload = assertV1ValidateRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
+        requestId = readRequestId(payload, request.headers);
+        const result = validateDraft(payload);
+        sendJson(response, 200, attachV1Meta(result, {
+          schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
+          requestId,
+        }));
         return;
       }
 
@@ -318,6 +366,11 @@ export function createAppServer(options = {}) {
     } catch (error) {
       const mapped = mapApplicationError(error);
       if (mapped.status === 500) onError(error);
+      if (v1) {
+        const envelope = v1ErrorEnvelope(requestId, mapped);
+        sendJson(response, envelope.status, envelope.body, mapped.headers);
+        return;
+      }
       sendJson(response, mapped.status, {
         error: { code: mapped.code, message: mapped.message },
       }, mapped.headers);

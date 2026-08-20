@@ -54,7 +54,7 @@ test("파일럿 fixture는 비밀과 정보 손실을 거절한다", () => {
   const fields = { body: "Memory Node Graph https://memory.example MIT" };
   assert.equal(informationLossIssues(fields, fields, { name: "Memory Node Graph", demoUrl: "https://memory.example" }).length, 0);
   assert.ok(informationLossIssues(fields, { body: "hello" }, { name: "Memory Node Graph" }).length > 0);
-  assert.throws(() => sanitizePilotFixture({ channel: "x1", publishFields: { body: "see /Users/hwanchoi/.grok/auth.json" } }), /비밀/);
+  assert.throws(() => sanitizePilotFixture({ channel: "x1", publishFields: { body: "see XAI_API_KEY in child env" } }), /비밀/);
   const clean = sanitizePilotFixture({ channel: "x1", provider: "grok", status: "ready", publishFields: { body: "ok" }, evidence: [] });
   assert.equal(clean.channel, "x1");
 });

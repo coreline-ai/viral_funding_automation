@@ -236,6 +236,8 @@ test("readiness API는 probe 없이 installed/ready 상태를 반환한다", asy
     assert.equal(payload.grok.status, "ready");
     assert.equal(payload.codex.id, "codex");
     assert.equal(payload.codex.status, "ready");
+    assert.equal(payload.grok.resolvedBin, undefined);
+    assert.equal(payload.schemaVersion, "viral-readiness/v1");
   });
 });
 

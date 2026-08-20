@@ -1,0 +1,442 @@
+openapi: 3.1.0
+info:
+  title: Viral Funding Automation local API
+  version: v1
+  description: >
+    Loopback-only contract for the web GUI. Mobile apps may reuse this schema later.
+    TLS, pairing, and non-loopback bind are out of scope.
+servers:
+  - url: http://127.0.0.1:4310
+    description: Default loopback server. HOST defaults to 127.0.0.1.
+tags:
+  - name: v1
+    description: Versioned local contract
+paths:
+  /api/v1/capabilities:
+    get:
+      tags: [v1]
+      summary: Supported locales, channels, providers, and bind policy
+      operationId: getCapabilities
+      responses:
+        "200":
+          description: Capability document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+  /api/v1/providers/readiness:
+    get:
+      tags: [v1]
+      summary: CLI install and login status without token or binary paths
+      operationId: getReadiness
+      parameters:
+        - name: probe
+          in: query
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Provider readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+  /api/v1/drafts/compose:
+    post:
+      tags: [v1]
+      summary: Compose English publish fields
+      operationId: composeDraft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComposeRequest"
+            example:
+              schemaVersion: viral-compose-request/v1
+              requestId: req_example_compose
+              idempotencyKey: idem_example_x1
+              channel: x1
+              provider: auto
+              sourceLocale: ko-KR
+              targetLocale: en-US
+              sourceHash: c0ffee00
+              facts:
+                name: AI Systems Atlas
+                repositoryUrl: https://github.com/coreline-ai/memory_node_graph
+                demoUrl: https://ai-systems-atlas.vercel.app/
+                license: MIT
+                technologies:
+                  - TypeScript
+              sourceDraft:
+                publishFields:
+                  body: AI Systems Atlas https://ai-systems-atlas.vercel.app/
+              publishFields:
+                body: AI Systems Atlas https://ai-systems-atlas.vercel.app/
+              authorInputs: {}
+      responses:
+        "200":
+          description: Compose result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComposeResponse"
+        "409":
+          description: Source hash is stale
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                schemaVersion: viral-error/v1
+                requestId: req_example_compose
+                error:
+                  code: SOURCE_STALE
+                  message: 원문이 바뀌어 요청이 오래되었습니다.
+        "429":
+          description: Queue full or provider rate limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "499":
+          description: Client cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                schemaVersion: viral-error/v1
+                requestId: req_example_compose
+                error:
+                  code: REQUEST_CANCELLED
+                  message: 번역 요청이 취소되었습니다.
+        "504":
+          description: Provider timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                schemaVersion: viral-error/v1
+                requestId: req_example_compose
+                error:
+                  code: PROVIDER_TIMEOUT
+                  message: Grok 요청 시간이 초과되었습니다.
+  /api/v1/drafts/review:
+    post:
+      tags: [v1]
+      summary: Non-publishing review issues
+      operationId: reviewDraft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "200":
+          description: Issues and suggestions only
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+  /api/v1/drafts/validate:
+    post:
+      tags: [v1]
+      summary: Revalidate publish fields without a provider
+      operationId: validateDraft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateResponse"
+components:
+  schemas:
+    Channel:
+      type: string
+      enum:
+        [x1, x2, x3, xThread, threads, reddit, linkedin, disquiet, facebook, instagram, productHunt, peerlist, indieHackers, okky, geeknews, dev, shorts, showHn]
+    Provider:
+      type: string
+      enum: [auto, grok, codex]
+    CompletionStatus:
+      type: string
+      enum: [ready, needs_review, needs_input, manual_only]
+    ErrorCode:
+      type: string
+      enum:
+        [SOURCE_STALE, QUEUE_FULL, QUEUE_UNAVAILABLE, REQUEST_CANCELLED, PROVIDER_TIMEOUT, PROVIDER_RATE_LIMIT, LOGIN_REQUIRED, TRANSLATION_DISABLED, INVALID_PROVIDER, INVALID_CHANNEL, INVALID_REQUEST, UNKNOWN_FIELD, UNSUPPORTED_CONTENT_TYPE, REQUEST_TOO_LARGE, GROK_INVALID_OUTPUT]
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, error]
+      properties:
+        schemaVersion:
+          type: string
+          const: viral-error/v1
+        requestId:
+          type: string
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+    FieldIssue:
+      type: object
+      required: [code, message]
+      properties:
+        group:
+          type: string
+        code:
+          type: string
+        field:
+          type: string
+        message:
+          type: string
+    Capabilities:
+      type: object
+      required: [schemaVersion, requestId, providers, channels, cors, bind]
+      properties:
+        schemaVersion:
+          type: string
+          const: viral-capabilities/v1
+        requestId:
+          type: string
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Provider"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
+        statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletionStatus"
+        cors:
+          type: string
+          const: disabled
+        bind:
+          type: object
+          required: [host, loopbackOnly]
+          properties:
+            host:
+              type: string
+              const: 127.0.0.1
+            loopbackOnly:
+              type: boolean
+              const: true
+        followUp:
+          type: object
+          properties:
+            tls:
+              type: boolean
+            pairing:
+              type: boolean
+            externalDevices:
+              type: boolean
+    Readiness:
+      type: object
+      required: [schemaVersion, grok, codex]
+      properties:
+        schemaVersion:
+          type: string
+          const: viral-readiness/v1
+        requestId:
+          type: string
+        grok:
+          $ref: "#/components/schemas/ProviderReadiness"
+        codex:
+          $ref: "#/components/schemas/ProviderReadiness"
+    ProviderReadiness:
+      type: object
+      additionalProperties: false
+      required: [id, status, ready]
+      properties:
+        id:
+          type: string
+          enum: [grok, codex]
+        status:
+          type: string
+          enum: [installed, auth_unknown, ready, login_required, unavailable]
+        ready:
+          type: boolean
+        version:
+          type: string
+    ComposeRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, sourceLocale, targetLocale]
+      properties:
+        schemaVersion:
+          type: string
+          const: viral-compose-request/v1
+        requestId:
+          type: string
+        idempotencyKey:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        sourceLocale:
+          type: string
+          const: ko-KR
+        targetLocale:
+          type: string
+          const: en-US
+        sourceHash:
+          type: string
+        facts:
+          type: object
+        sourceDraft:
+          type: object
+        publishFields:
+          type: object
+        authorInputs:
+          type: object
+        siblings:
+          type: object
+    ComposeResponse:
+      type: object
+      required: [schemaVersion, channel, status]
+      properties:
+        schemaVersion:
+          type: string
+          const: viral-compose-response/v1
+        requestId:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        provider:
+          type: string
+        status:
+          $ref: "#/components/schemas/CompletionStatus"
+        sourceHash:
+          type: string
+        publishFields:
+          type: ["object", "null"]
+        validation:
+          type: object
+          properties:
+            ok:
+              type: boolean
+            issues:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldIssue"
+        missingInputs:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldIssue"
+    ReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, sourceLocale, targetLocale]
+      properties:
+        schemaVersion:
+          type: string
+        requestId:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        provider:
+          $ref: "#/components/schemas/Provider"
+        sourceLocale:
+          type: string
+        targetLocale:
+          type: string
+        publishFields:
+          type: object
+        sourceDraft:
+          type: object
+        facts:
+          type: object
+    ReviewResponse:
+      type: object
+      required: [channel]
+      properties:
+        schemaVersion:
+          type: string
+        requestId:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        provider:
+          type: string
+        issues:
+          type: array
+          items:
+            type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+    ValidateRequest:
+      type: object
+      additionalProperties: false
+      required: [channel]
+      properties:
+        schemaVersion:
+          type: string
+        requestId:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sourceLocale:
+          type: string
+        targetLocale:
+          type: string
+        sourceHash:
+          type: string
+        facts:
+          type: object
+        sourceDraft:
+          type: object
+        publishFields:
+          type: object
+        authorInputs:
+          type: object
+        siblings:
+          type: object
+    ValidateResponse:
+      type: object
+      required: [channel, status, validation]
+      properties:
+        schemaVersion:
+          type: string
+        requestId:
+          type: string
+        channel:
+          $ref: "#/components/schemas/Channel"
+        status:
+          $ref: "#/components/schemas/CompletionStatus"
+        validation:
+          type: object
+        missingInputs:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldIssue"

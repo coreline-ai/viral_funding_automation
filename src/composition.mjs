@@ -27,11 +27,34 @@ import {
 } from "./drafts.mjs";
 import { BoundedConversationQueue, GrokProxyError } from "./grok-oauth-proxy.mjs";
 import { inventedClaimIssues, englishOutputSchema, validateTranslateRequest, TRANSLATION_SCHEMA_VERSION } from "./translation.mjs";
+import { COMPOSE_CACHE_MAX_ENTRIES, COMPOSE_CACHE_TTL_MS } from "./api/v1/contract.mjs";
 
 const idempotencyCache = new Map();
 
 export function clearComposeCache() {
   idempotencyCache.clear();
+}
+
+function pruneComposeCache(now = Date.now()) {
+  for (const [key, entry] of idempotencyCache) {
+    if (!entry || now - entry.at > COMPOSE_CACHE_TTL_MS) idempotencyCache.delete(key);
+  }
+  while (idempotencyCache.size >= COMPOSE_CACHE_MAX_ENTRIES) {
+    const oldest = idempotencyCache.keys().next().value;
+    idempotencyCache.delete(oldest);
+  }
+}
+
+function readComposeCache(key) {
+  pruneComposeCache();
+  const hit = idempotencyCache.get(key);
+  return hit?.value;
+}
+
+function writeComposeCache(key, value) {
+  pruneComposeCache();
+  idempotencyCache.delete(key);
+  idempotencyCache.set(key, { value, at: Date.now() });
 }
 
 export function composeCacheKey({ idempotencyKey, sourceHash, channel, provider }) {
@@ -211,7 +234,10 @@ export async function composeDraft(payload, options = {}) {
   const cacheKey = payload.idempotencyKey
     ? composeCacheKey({ idempotencyKey: payload.idempotencyKey, sourceHash, channel: base.channel, provider })
     : "";
-  if (cacheKey && idempotencyCache.has(cacheKey)) return idempotencyCache.get(cacheKey);
+  if (cacheKey) {
+    const cached = readComposeCache(cacheKey);
+    if (cached) return cached;
+  }
 
   const runner = pickRunner(provider, options);
   if (!runner) {
@@ -272,7 +298,7 @@ export async function composeDraft(payload, options = {}) {
     warnings,
     composedAt: new Date().toISOString(),
   };
-  if (cacheKey) idempotencyCache.set(cacheKey, composed);
+  if (cacheKey) writeComposeCache(cacheKey, composed);
   return composed;
 }
 

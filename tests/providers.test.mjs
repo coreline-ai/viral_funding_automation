@@ -33,12 +33,12 @@ test("readiness 상태와 fake provider compose/review 계약이 같다", async 
 
 test("실제 grok·codex --version이 있으면 readiness installed로 분류한다", async () => {
   const { CliCodexTextRunner, CliGrokTextRunner, loadCodexRuntimeConfig, loadGrokRuntimeConfig } = await import("../src/grok-oauth-proxy.mjs");
-  const grokConfig = loadGrokRuntimeConfig({ GROK_BIN: resolveCliBinary({ names: ["grok"], fallbacks: ["/Users/hwanchoi/.grok/bin/grok"] }) || "/Users/hwanchoi/.grok/bin/grok" });
+  const grokConfig = loadGrokRuntimeConfig({});
   const grok = await new CliGrokTextRunner(grokConfig).readiness();
   assert.ok(["installed", "unavailable"].includes(grok.status));
   assert.ok(grok.resolvedBin);
   if (grok.status === "installed") assert.match(grok.version, /grok/i);
-  const codexConfig = loadCodexRuntimeConfig({ CODEX_BIN: resolveCliBinary({ names: ["codex"], fallbacks: ["/Users/hwanchoi/bin/codex"] }) || "/Users/hwanchoi/bin/codex" });
+  const codexConfig = loadCodexRuntimeConfig({});
   const codex = await new CliCodexTextRunner(codexConfig).readiness();
   assert.ok(["installed", "unavailable"].includes(codex.status));
   if (codex.status === "installed") assert.match(codex.version, /codex/i);

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
 
 import { cachedAuthProbe, classifyReadiness, parseCodexStdout } from "./providers/oauth-text.mjs";
@@ -113,7 +113,7 @@ export function loadGrokRuntimeConfig(env = process.env) {
     explicit: env.GROK_BIN,
     names: ["grok"],
     pathValue: env.PATH ?? process.env.PATH,
-    fallbacks: ["/Users/hwanchoi/.grok/bin/grok"],
+    fallbacks: [join(homedir(), ".grok", "bin", "grok")],
     notFoundCode: "GROK_CLI_NOT_FOUND",
     relativeMessage: "GROK_BIN은 절대 경로여야 합니다.",
   });
@@ -134,7 +134,7 @@ export function loadCodexRuntimeConfig(env = process.env) {
     explicit: env.CODEX_BIN,
     names: ["codex"],
     pathValue: env.PATH ?? process.env.PATH,
-    fallbacks: ["/Users/hwanchoi/bin/codex", "/Users/hwanchoi/.nvm/versions/node/v24.13.1/bin/codex"],
+    fallbacks: [join(homedir(), "bin", "codex")],
     notFoundCode: "CODEX_CLI_NOT_FOUND",
     relativeMessage: "CODEX_BIN은 절대 경로여야 합니다.",
   });
