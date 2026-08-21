@@ -1,5 +1,6 @@
 import { channelProfile, preferredProvider, requiredAuthorInputs } from "./channel-profiles.mjs";
 import { CHANNEL_KEYS, channelSpec, publishLooksInternal } from "./drafts.mjs";
+import { channelAutomationPolicy, platformReadinessList } from "./platform-registry.mjs";
 
 const OPS_LANGUAGE = [
   /HOLD\s*—/,
@@ -62,12 +63,12 @@ export function opsLanguageIssues(fields) {
   const text = flattenText(fields);
   const issues = [];
   if (publishLooksInternal(text)) {
-    issues.push({ group: "policy", code: "OPS_LANGUAGE", field: "", message: "영어 게시 필드에 운영 문구·HOLD·체크리스트가 있습니다." });
+    issues.push({ group: "policy", code: "OPS_LANGUAGE", field: "", message: "게시 필드에 운영 문구·HOLD·체크리스트가 있습니다." });
     return issues;
   }
   for (const pattern of OPS_LANGUAGE) {
     if (pattern.test(text)) {
-      issues.push({ group: "policy", code: "OPS_LANGUAGE", field: "", message: "영어 게시 필드에 한국어 운영 문구가 있습니다." });
+      issues.push({ group: "policy", code: "OPS_LANGUAGE", field: "", message: "게시 필드에 내부 운영 문구가 있습니다." });
       break;
     }
   }
@@ -173,16 +174,27 @@ export function repeatQualityWarnings(channelFields = {}) {
 export function policyMatrix() {
   return Object.fromEntries(CHANNEL_KEYS.map((channel) => {
     const spec = channelSpec(channel);
+    const automation = channelAutomationPolicy(channel);
     return [channel, {
       channel,
       status: spec.status,
       translationPolicy: spec.translationPolicy,
+      supportMode: channelProfile(channel)?.supportMode,
+      defaultLocale: channelProfile(channel)?.defaultLocale,
+      supportedLocales: channelProfile(channel)?.supportedLocales,
       preferredProvider: preferredProvider(channel),
       requiredAuthorInputs: requiredAuthorInputs(channel),
       publishFields: spec.fields,
       prepublishGates: prepublishGates(channel).map((gate) => gate.key),
+      automation,
     }];
   }));
+}
+
+// Platform-level inventory intentionally remains separate from the 18 draft
+// variants: X has four content variants but one future platform connector.
+export function platformAutomationMatrix(options = {}) {
+  return Object.fromEntries(platformReadinessList(options).map((profile) => [profile.id, profile]));
 }
 
 export function reviewPolicyMatchesHold() {

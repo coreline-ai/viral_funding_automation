@@ -1,4 +1,5 @@
 import { channelProfile, requiredAuthorInputs } from "./channel-profiles.mjs";
+import { assessChannelState, firstPersonIssues } from "./channel-state.mjs";
 import { countXWeightedCharacters } from "./x-text.mjs";
 
 export const DRAFT_SCHEMA_VERSION = "viral-draft/v1";
@@ -80,7 +81,16 @@ function emptyInternal() {
     notes: [],
     authorReady: false,
     authorInputs: {},
+    operationInputs: {},
+    campaignBrief: {},
+    approvalStatus: "unreviewed",
+    approvalRevision: null,
+    approvalActor: "",
+    // Phase 2 stores non-secret account/app/policy/asset metadata only.
+    // Credentials, raw files, and local file paths never belong in a draft.
+    platformReadiness: null,
     previousEnglish: null,
+    previousCompositions: {},
     lastReview: null,
     prepublish: [],
   };
@@ -196,6 +206,9 @@ export function createDraftDocument(channel, options = {}) {
       prepublish: (channelProfile(channel)?.prepublishGates ?? []).map((gate) => gate.key),
       ...options.internal,
       authorReady: Boolean(options.internal?.authorReady),
+      operationInputs: { ...(options.internal?.operationInputs ?? {}) },
+      campaignBrief: { ...(options.internal?.campaignBrief ?? {}) },
+      approvalStatus: options.internal?.approvalStatus ?? (options.internal?.authorReady ? "approved" : "unreviewed"),
     },
     profile: channelProfile(channel),
   };
@@ -409,6 +422,11 @@ export function validatePublish(channel, fields, options = {}) {
       }
     }
   }
+  issues.push(...firstPersonIssues(value, options.campaignBrief, { channel }).map((issue) => ({
+    code: issue.code,
+    field: issue.field,
+    message: issue.message,
+  })));
   return { ok: issues.length === 0, issues };
 }
 
@@ -424,45 +442,54 @@ export function missingLockTerms(sourceFields, targetFields, facts) {
   return collectLockTerms(facts).filter((term) => sourceText.includes(term) && !targetText.includes(term));
 }
 
+export function displayCompletionState(document, options = {}) {
+  const channel = document?.channel;
+  const internal = document?.internal ?? {};
+  const missingTranslation = options.locale !== SOURCE_LOCALE && options.missingTranslation;
+  const assessment = assessChannelState({
+    channel,
+    validationOk: !missingTranslation && Boolean(options.validationOk),
+    authorInputs: options.authorInputs ?? internal.authorInputs ?? {},
+    operationInputs: options.operationInputs ?? internal.operationInputs ?? {},
+    campaignBrief: options.campaignBrief ?? internal.campaignBrief ?? {},
+    approvalStatus: options.approvalStatus ?? internal.approvalStatus,
+    legacyAuthorReady: Boolean(internal.authorReady),
+  });
+  return { ...assessment, stale: Boolean(options.stale), missingTranslation };
+}
+
 export function displayCompletionStatus(document, options = {}) {
-  const spec = channelSpec(document?.channel);
-  if (!spec || spec.translationPolicy === "disabled" || document?.channel === "showHn") return "manual_only";
-  if (options.locale === "en-US" && options.stale) return "stale";
-  const inputs = document?.internal?.authorInputs ?? options.authorInputs ?? {};
-  const missing = requiredAuthorInputs(document.channel).filter((key) => !String(inputs[key] ?? "").trim());
-  if (missing.length > 0 || spec.translationPolicy === "draftOnly") return "needs_input";
-  if (options.locale === "en-US" && options.missingTranslation) return "needs_review";
-  if (!options.validationOk || spec.status === "hold") return "needs_review";
-  return "ready";
+  const state = displayCompletionState(document, options);
+  return state.stale ? "stale" : state.contentStatus;
 }
 
 export function copyBlockReason(document, options = {}) {
   const spec = channelSpec(document?.channel);
   if (!spec) return "지원하지 않는 채널입니다.";
-  const status = options.completionStatus ?? displayCompletionStatus(document, {
+  const state = displayCompletionState(document, {
     locale: options.locale,
     stale: options.stale,
     missingTranslation: options.missingTranslation,
     validationOk: options.validation ? options.validation.ok : true,
     authorInputs: options.authorInputs,
+    operationInputs: options.operationInputs,
+    campaignBrief: options.campaignBrief,
+    approvalStatus: options.approvalStatus,
   });
-  if (document.translationPolicy === "disabled" || status === "manual_only") {
+  if (state.supportMode === "manual_only" || state.contentStatus === "manual_only") {
     return "이 채널은 생성 원고를 복사할 수 없습니다.";
   }
-  if (status === "stale" || (options.locale === "en-US" && options.stale)) {
-    return "원문이 바뀌어 영문 원고가 오래되었습니다. 다시 생성하세요.";
+  if (state.supportMode === "reference_only") {
+    return "이 채널은 참고 자료만 제공합니다. 최종 게시문은 작성자가 직접 작성하세요.";
   }
-  if (options.locale === "en-US" && options.missingTranslation) return "영어 원고가 없습니다.";
-  if (status === "needs_input") return "작성자 입력이 필요합니다.";
-  if (document.status === "hold" && !document.internal?.authorReady) {
-    return "HOLD 채널은 작성자 보강 완료 전에는 복사할 수 없습니다.";
+  if (state.stale || (options.locale !== SOURCE_LOCALE && options.stale)) {
+    return "원문이 바뀌어 번역 원고가 오래되었습니다. 다시 생성하세요.";
   }
-  if (document.translationPolicy === "draftOnly" && !document.internal?.authorReady) {
-    return "작성자 보강 완료 전에는 복사할 수 없습니다.";
-  }
-  if (status === "needs_review" && !document.internal?.authorReady) {
-    return "검토가 끝나기 전에는 복사할 수 없습니다.";
-  }
+  if (options.locale !== SOURCE_LOCALE && options.missingTranslation) return "선택한 언어 원고가 없습니다.";
+  if (state.contentStatus === "needs_input") return state.contentInputIssues[0]?.message ?? "작성자 입력이 필요합니다.";
+  if (state.contentStatus === "invalid") return options.validation?.issues?.[0]?.message ?? "게시 필드 검증에 실패했습니다.";
+  if (state.operationsStatus !== "ready") return state.operationIssues[0]?.message ?? "게시 운영 조건 확인이 필요합니다.";
+  if (state.approvalStatus !== "approved") return "현재 결과를 확인한 뒤 사람 승인을 표시하세요.";
   if (options.validation && !options.validation.ok) {
     return options.validation.issues[0]?.message ?? "게시 필드 검증에 실패했습니다.";
   }
@@ -477,6 +504,7 @@ export function publishLooksInternal(text) {
     || /## 게시 전 확인/.test(value)
     || /Status:\s*`?HOLD/i.test(value)
     || /운영 게이트/.test(value)
+    || /규칙을 확인한 뒤/.test(value)
     || /게시 금지/.test(value);
 }
 

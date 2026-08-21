@@ -1,3 +1,5 @@
+import { SOURCE_LOCALE, SUPPORTED_LOCALES, isSupportedLocale } from "./locales.mjs";
+
 export const PREFERRED_PROVIDER = Object.freeze({
   x1: "grok",
   x2: "grok",
@@ -19,25 +21,49 @@ export const PREFERRED_PROVIDER = Object.freeze({
   showHn: null,
 });
 
+export const SUPPORT_MODES = Object.freeze(["compose", "reference_only", "manual_only"]);
+export const PUBLISHER_ROLES = Object.freeze(["owner", "maintainer", "contributor", "curator"]);
+export const ACCOUNT_VOICES = Object.freeze(["personal", "organization"]);
+
+export const CAMPAIGN_BRIEF_DEFS = Object.freeze([
+  { key: "publisherRole", label: "게시자 역할", type: "select", options: PUBLISHER_ROLES, hint: "프로젝트와의 실제 관계를 선택하세요." },
+  { key: "accountVoice", label: "게시 계정", type: "select", options: ACCOUNT_VOICES, hint: "개인 계정인지 조직 계정인지 선택하세요." },
+  { key: "ownershipConfirmed", label: "작성자 관계 확인", type: "boolean", hint: "프로젝트를 대표하거나 기여 사실을 게시할 권한이 있음을 확인합니다." },
+  { key: "goal", label: "게시 목표", type: "text", minLength: 3, hint: "예: 첫 사용 피드백 수집" },
+  { key: "audience", label: "대상 독자", type: "text", minLength: 3, hint: "예: Markdown 문서를 관리하는 개발자" },
+  { key: "targetLocale", label: "게시 언어", type: "locale", hint: "채널이 지원하는 언어만 선택할 수 있습니다." },
+]);
+
 export const AUTHOR_INPUT_DEFS = Object.freeze({
   reddit: Object.freeze([
-    { key: "subreddit", label: "대상 서브레딧", hint: "예: r/sideproject. 자기홍보와 계정 조건을 확인하세요." },
-    { key: "rules", label: "확인한 규칙", hint: "플레어·자기홍보·계정 조건을 한국어로 적습니다." },
-    { key: "flair", label: "플레어", hint: "해당 서브레딧에서 쓸 플레어가 있으면 적습니다." },
+    { key: "subreddit", label: "대상 서브레딧", minLength: 3, hint: "예: r/sideproject. 자기홍보와 계정 조건을 확인하세요." },
+    { key: "rules", label: "확인한 규칙", minLength: 10, hint: "플레어·자기홍보·계정 조건을 한국어로 적습니다." },
+    { key: "flair", label: "플레어", minLength: 2, hint: "해당 서브레딧에서 쓸 플레어가 있으면 적습니다." },
   ]),
   indieHackers: Object.freeze([
-    { key: "motivation", label: "만든 이유", hint: "실제로 이 프로젝트를 시작한 계기를 한국어로 적습니다." },
-    { key: "hardDecision", label: "어려웠던 결정", hint: "구현 중 포기하거나 바꾼 선택을 사실만 적습니다." },
+    { key: "motivation", label: "만든 이유", minLength: 12, hint: "실제로 이 프로젝트를 시작한 계기를 한국어로 적습니다." },
+    { key: "hardDecision", label: "어려웠던 결정", minLength: 12, hint: "구현 중 포기하거나 바꾼 선택을 사실만 적습니다." },
+    { key: "failedApproach", label: "포기한 접근", minLength: 12, hint: "실제로 시도했지만 쓰지 않기로 한 접근을 적습니다." },
   ]),
   dev: Object.freeze([
-    { key: "realCase", label: "실제 기술 사례", hint: "직접 겪은 문제와 해결을 적습니다. AI가 꾸며내지 않습니다." },
-    { key: "code", label: "코드·실행 예", hint: "검증 가능한 코드나 실행 흔적을 적습니다." },
-    { key: "failure", label: "실패·한계", hint: "안 된 시도와 현재 한계를 적습니다." },
-    { key: "aiDisclosure", label: "AI 사용 공개", hint: "이 글에서 AI가 도운 범위를 공개합니다." },
+    { key: "realCase", label: "실제 기술 사례", minLength: 20, hint: "직접 겪은 문제와 해결을 적습니다. AI가 꾸며내지 않습니다." },
+    { key: "code", label: "코드·실행 예", minLength: 8, hint: "검증 가능한 코드나 실행 흔적을 적습니다." },
+    { key: "failure", label: "실패·한계", minLength: 12, hint: "안 된 시도와 현재 한계를 적습니다." },
+    { key: "aiDisclosure", label: "AI 사용 공개", minLength: 8, hint: "이 글에서 AI가 도운 범위를 공개합니다." },
   ]),
   productHunt: Object.freeze([
-    { key: "pricing", label: "가격", hint: "현재 공개된 가격 또는 Free를 적습니다." },
-    { key: "assets", label: "Gallery 자산", hint: "썸네일·갤러리·로고 준비 상태를 적습니다." },
+    { key: "pricing", label: "가격", minLength: 2, hint: "현재 공개된 가격 또는 Free를 적습니다." },
+    { key: "topic", label: "Product Hunt Topic", minLength: 2, hint: "제품에 실제로 지정할 Topic을 적습니다." },
+    { key: "makerAccountConfirmed", label: "Maker 계정·권한 확인", type: "boolean", scope: "operations", hint: "Maker 계정과 프로젝트 대표 권한을 확인합니다." },
+    { key: "launchReady", label: "Launch 준비 확인", type: "boolean", scope: "operations", hint: "제출 URL·일정·제품 공개 상태를 확인합니다." },
+    { key: "galleryAssetId", label: "Gallery 자산 식별값", minLength: 6, scope: "operations", hint: "실제 썸네일·갤러리의 파일명 또는 asset hash를 적습니다." },
+  ]),
+  facebook: Object.freeze([
+    { key: "groupName", label: "대상 Facebook 그룹", minLength: 3, scope: "operations", hint: "게시할 그룹 이름을 적습니다." },
+    { key: "groupLocale", label: "그룹 언어", type: "locale", scope: "operations", hint: "그룹의 실제 기본 언어를 선택합니다." },
+    { key: "ruleUrl", label: "그룹 규칙 URL", type: "url", scope: "operations", hint: "자기홍보 규칙을 확인한 URL을 적습니다." },
+    { key: "rulesCheckedAt", label: "규칙 확인일", type: "date", scope: "operations", hint: "규칙을 직접 확인한 날짜를 적습니다." },
+    { key: "originalContentConfirmed", label: "원본 영상·콘텐츠 확인", type: "boolean", scope: "operations", hint: "본인이 만든 원본 영상·콘텐츠임을 확인합니다." },
   ]),
 });
 
@@ -50,10 +76,110 @@ export function authorInputDefs(channel) {
 }
 
 export function requiredAuthorInputs(channel) {
-  return authorInputDefs(channel).map((item) => item.key);
+  return authorInputDefs(channel).filter((item) => item.scope !== "operations").map((item) => item.key);
 }
 
-export const CHANNEL_PROFILES = Object.freeze({
+export function operationInputDefs(channel) {
+  return authorInputDefs(channel).filter((item) => item.scope === "operations");
+}
+
+export function requiredOperationInputs(channel) {
+  return operationInputDefs(channel).map((item) => item.key);
+}
+
+export function supportMode(channel) {
+  if (channel === "showHn") return "manual_only";
+  if (channel === "reddit" || channel === "dev") return "reference_only";
+  return "compose";
+}
+
+export function defaultLocale(channel) {
+  if (["geeknews", "okky", "disquiet"].includes(channel)) return "ko-KR";
+  return "en-US";
+}
+
+export function supportedLocales(channel) {
+  // Korean communities remain Korean/English only. Global channels can use the
+  // five launch languages, but this means "composition candidate", not that a
+  // local community accepts every language.
+  if (["geeknews", "okky", "disquiet"].includes(channel)) {
+    return defaultLocale(channel) === SOURCE_LOCALE ? [SOURCE_LOCALE, "en-US"] : ["en-US", SOURCE_LOCALE];
+  }
+  const primary = defaultLocale(channel);
+  return [primary, ...SUPPORTED_LOCALES.filter((locale) => locale !== primary)];
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function inputIsValid(def, value) {
+  if (def.type === "boolean") return value === true;
+  if (def.type === "url") {
+    try {
+      const url = new URL(String(value ?? ""));
+      return url.protocol === "https:" || url.protocol === "http:";
+    } catch { return false; }
+  }
+  if (def.type === "date") return /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ""));
+  if (def.type === "locale") return isSupportedLocale(String(value ?? ""));
+  return String(value ?? "").trim().length >= (def.minLength ?? 1);
+}
+
+export function validateTypedInputs(channel, inputs = {}, { scope = "all" } = {}) {
+  if (!isPlainObject(inputs)) return [{ key: "", code: "INVALID_INPUT_OBJECT", message: "입력은 객체여야 합니다." }];
+  const profile = channelProfile(channel);
+  const defs = authorInputDefs(channel).filter((def) => scope === "all" || (scope === "operations" ? def.scope === "operations" : def.scope !== "operations"));
+  const genericOperationKeys = new Set((profile?.prepublishGates ?? []).map((gate) => gate.key));
+  const issues = [];
+  for (const key of Object.keys(inputs)) {
+    // Prepublish gates such as Threads' firstImage are boolean operation
+    // attestations, not free-form author fields, but still belong in the
+    // approved snapshot and readiness gate.
+    const genericOperationAllowed = (scope === "all" || scope === "operations") && genericOperationKeys.has(key);
+    if (!authorInputDefs(channel).some((def) => def.key === key) && !genericOperationAllowed) {
+      issues.push({ key, code: "UNKNOWN_INPUT", message: `알 수 없는 입력입니다: ${key}` });
+    }
+  }
+  for (const def of defs) {
+    if (!inputIsValid(def, inputs[def.key])) {
+      issues.push({ key: def.key, code: "INVALID_OR_MISSING_INPUT", message: `${def.label} 입력이 필요합니다.` });
+    }
+  }
+  return issues;
+}
+
+export function normalizeCampaignBrief(value = {}, { channel, targetLocale } = {}) {
+  const brief = isPlainObject(value) ? value : {};
+  const locale = targetLocale ?? brief.targetLocale ?? defaultLocale(channel);
+  return {
+    publisherRole: PUBLISHER_ROLES.includes(brief.publisherRole) ? brief.publisherRole : "curator",
+    accountVoice: ACCOUNT_VOICES.includes(brief.accountVoice) ? brief.accountVoice : "personal",
+    ownershipConfirmed: brief.ownershipConfirmed === true,
+    goal: typeof brief.goal === "string" ? brief.goal.trim() : "",
+    audience: typeof brief.audience === "string" ? brief.audience.trim() : "",
+    targetLocale: supportedLocales(channel).includes(locale) ? locale : defaultLocale(channel),
+  };
+}
+
+export function campaignBriefIssues(value = {}, options = {}) {
+  const brief = normalizeCampaignBrief(value, options);
+  const issues = [];
+  if (brief.goal.length < 3) issues.push({ key: "goal", code: "INVALID_CAMPAIGN_BRIEF", message: "게시 목표를 3자 이상 입력하세요." });
+  if (brief.audience.length < 3) issues.push({ key: "audience", code: "INVALID_CAMPAIGN_BRIEF", message: "대상 독자를 3자 이상 입력하세요." });
+  return issues;
+}
+
+export function allowsFirstPerson(brief, phrase) {
+  const normalized = normalizeCampaignBrief(brief);
+  const ownerLike = ["owner", "maintainer"].includes(normalized.publisherRole) && normalized.ownershipConfirmed;
+  if (/\bI built\b/i.test(phrase)) return ownerLike && normalized.accountVoice === "personal";
+  if (/\bwe built\b/i.test(phrase)) return ownerLike && normalized.accountVoice === "organization";
+  if (/\bI contributed\b/i.test(phrase)) return normalized.publisherRole === "contributor" && normalized.accountVoice === "personal" && normalized.ownershipConfirmed;
+  return true;
+}
+
+const BASE_CHANNEL_PROFILES = {
   x1: {
     locale: "en-US",
     audience: "developers on X",
@@ -159,8 +285,8 @@ export const CHANNEL_PROFILES = Object.freeze({
     aiPolicy: "keep verified facts only",
     composeHint: "Facebook: keep reelsCaption and groupBody as different texts. Reels caption is for original video. Group body is a community post. Do not copy one field into the other.",
     prepublishGates: [
-      { key: "originalVideo", message: "Facebook Reels는 원본 세로 영상이 필요합니다." },
-      { key: "groupRules", message: "대상 그룹의 자기홍보 규칙을 확인하세요." },
+      { key: "originalContentConfirmed", message: "Facebook Reels 원본 세로 영상·콘텐츠를 확인하세요." },
+      { key: "ruleUrl", message: "대상 그룹의 자기홍보 규칙 URL을 확인하세요." },
     ],
   },
   instagram: {
@@ -285,7 +411,18 @@ export const CHANNEL_PROFILES = Object.freeze({
       { key: "priorFeedback", message: "앞선 피드백을 반영한 뒤에만 진행하세요." },
     ],
   },
-});
+};
+
+export const CHANNEL_PROFILES = Object.freeze(Object.fromEntries(
+  Object.entries(BASE_CHANNEL_PROFILES).map(([channel, profile]) => [channel, Object.freeze({
+    ...profile,
+    // `locale` is retained only for persisted v1 documents. New consumers use
+    // defaultLocale/supportedLocales so a Korean community is never silently translated.
+    defaultLocale: defaultLocale(channel),
+    supportedLocales: Object.freeze(supportedLocales(channel)),
+    supportMode: supportMode(channel),
+  })]),
+));
 
 export function channelProfile(channel) {
   return CHANNEL_PROFILES[channel] ?? null;

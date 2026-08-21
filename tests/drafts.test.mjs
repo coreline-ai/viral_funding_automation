@@ -24,6 +24,8 @@ test("18개 채널 초안이 publishFields와 internal을 가진다", () => {
     assert.equal(document.schemaVersion, "viral-draft/v1");
     assert.equal(typeof document.publishFields, "object");
     assert.equal(typeof document.internal, "object");
+    assert.equal(document.internal.approvalRevision, null);
+    assert.equal(document.internal.approvalActor, "");
   }
   assert.deepEqual(createDraftDocument("showHn").publishFields, {});
 });
@@ -121,23 +123,24 @@ test("채널 레지스트리가 필드 타입·스키마·입력 복구의 정�
   );
 });
 
-test("완성 상태는 입력 누락·HOLD·Show HN을 구분한다", () => {
-  assert.equal(displayCompletionStatus(createDraftDocument("showHn")), "manual_only");
-  assert.equal(displayCompletionStatus(createDraftDocument("reddit")), "needs_input");
+test("완성 상태는 콘텐츠·운영·승인을 분리한다", () => {
+  assert.equal(displayCompletionStatus(createDraftDocument("showHn"), { validationOk: true }), "manual_only");
+  assert.equal(displayCompletionStatus(createDraftDocument("reddit"), { validationOk: true }), "reference_ready");
   const hunt = createDraftDocument("productHunt");
-  hunt.internal.authorInputs = { pricing: "Free", assets: "gallery" };
-  assert.equal(displayCompletionStatus(hunt, { validationOk: true }), "needs_review");
+  hunt.internal.authorInputs = { pricing: "Free", topic: "Developer Tools" };
+  assert.equal(displayCompletionStatus(hunt, { validationOk: true }), "candidate");
   const x1 = createDraftDocument("x1");
-  assert.equal(displayCompletionStatus(x1, { validationOk: true }), "ready");
-  assert.equal(displayCompletionStatus(x1, { locale: "en-US", stale: true }), "stale");
+  assert.equal(displayCompletionStatus(x1, { validationOk: true }), "candidate");
+  assert.equal(displayCompletionStatus(x1, { locale: "en-US", stale: true, validationOk: true }), "stale");
 });
 
-test("HOLD와 stale이면 복사를 차단한다", () => {
+test("운영 조건·승인·stale이면 복사를 차단한다", () => {
   const held = createDraftDocument("productHunt");
-  assert.match(copyBlockReason(held, { locale: "en-US" }), /작성자 입력/);
-  held.internal.authorInputs = { pricing: "Free", assets: "gallery ready" };
-  assert.match(copyBlockReason(held, { locale: "en-US" }), /HOLD/);
-  held.internal.authorReady = true;
-  assert.match(copyBlockReason(held, { locale: "en-US", stale: true }), /오래되었습니다/);
+  held.internal.authorInputs = { pricing: "Free", topic: "Developer Tools" };
+  assert.match(copyBlockReason(held, { locale: "en-US", validation: { ok: true } }), /Maker 계정|운영 조건/);
+  held.internal.operationInputs = { makerAccountConfirmed: true, launchReady: true, galleryAssetId: "gallery-01" };
+  assert.match(copyBlockReason(held, { locale: "en-US", validation: { ok: true } }), /사람 승인/);
+  held.internal.approvalStatus = "approved";
+  assert.match(copyBlockReason(held, { locale: "en-US", stale: true, validation: { ok: true } }), /오래되었습니다/);
   assert.equal(hashPublishFields({ body: "a" }), hashPublishFields({ body: "a" }));
 });

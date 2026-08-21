@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "viral-phase4-rehearsal-fixture/v1",
+  "attestationMode": "synthetic_account_rehearsal",
+  "channel": "threads",
+  "targetLocale": "ko-KR",
+  "publishFields": {
+    "posts": [
+      "README와 개발 계획이 계속 쌓이면 파일은 찾을 수 있어도, 개념과 작업이 어떻게 연결되는지는 놓치기 쉽습니다.\n\n이 문제를 직접 탐색하기 위해 AI Systems Atlas를 만들었습니다. Markdown을 노드와 관계로 바꾸고 Three.js 그래프에서 보여주는 오픈소스 웹앱입니다.",
+      "구현하면서 중요하게 본 건 “보이는 선이 모두 사실 관계처럼 보이지 않게 하는 것”이었습니다.\n\n그래서 source path·line 근거가 있는 관계와 화면을 구성하기 위한 연결을 분리했습니다. 노드를 선택하면 별자리·성운·궤도 보기에서 주변 관계를 탐색할 수 있습니다.",
+      "로그인 없이 읽기 전용 공개 데모를 열 수 있습니다. Markdown 가져오기와 저장소 동기화는 로컬 앱에서 사용합니다.\n\n문서를 검색해서 파일은 찾았지만, 관련된 결정이나 작업 연결을 놓친 경험이 있나요? 첫 화면에서 가장 이해하기 어려운 부분도 알려주세요.\n\nhttps://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation"
+    ]
+  },
+  "facts": {
+    "name": "AI Systems Atlas",
+    "repositoryUrl": "https://github.com/coreline-ai/memory_node_graph",
+    "demoUrl": "https://ai-systems-atlas.vercel.app/?scope=corpus&view=constellation",
+    "license": "MIT",
+    "technologies": ["TypeScript", "React", "Three.js", "Remark"]
+  },
+  "operationInputs": { "firstImage": true },
+  "campaignBrief": {
+    "publisherRole": "owner",
+    "accountVoice": "organization",
+    "ownershipConfirmed": true,
+    "goal": "첫 화면 피드백 수집",
+    "audience": "Markdown 문서를 관리하는 개발자",
+    "targetLocale": "ko-KR"
+  },
+  "accountTarget": {
+    "platform": "threads",
+    "accountId": "threads-rehearsal-123",
+    "targetId": "threads-rehearsal-123",
+    "targetType": "profile",
+    "handle": "coreline-rehearsal"
+  },
+  "readiness": {
+    "schemaVersion": "viral-platform-readiness/v1",
+    "platform": "threads",
+    "account": {
+      "accountType": "threads_profile",
+      "profileId": "threads-rehearsal-123",
+      "targetId": "threads-rehearsal-123",
+      "targetType": "profile",
+      "handle": "coreline-rehearsal",
+      "profileUrl": "https://www.threads.net/@coreline-rehearsal",
+      "owner": "Coreline AI rehearsal",
+      "timezone": "Asia/Seoul",
+      "targetLocale": "ko-KR"
+    },
+    "developerApp": {
+      "configured": true,
+      "appId": "meta-rehearsal-app-123",
+      "approvedScopes": ["threads_basic", "threads_content_publish"],
+      "redirectUri": "http://127.0.0.1:4310/oauth/callback",
+      "credentialVaultConfirmed": true,
+      "credentialVaultStatus": "external_vault_required"
+    },
+    "policy": {
+      "url": "https://developers.facebook.com/docs/threads",
+      "verifiedAt": "2026-08-21"
+    },
+    "asset": null
+  },
+  "approvedBy": "Coreline rehearsal reviewer",
+  "approvedAt": "2026-08-21T12:00:00.000Z",
+  "requestedAt": "2026-08-21T12:01:00.000Z",
+  "credentialHandle": "vault-ref-threads-rehearsal",
+  "safety": {
+    "schemaVersion": "viral-dry-run-safety/v1",
+    "execution": "dry_run",
+    "userKillSwitch": "live_write_locked",
+    "liveWriteLocked": true
+  }
+}

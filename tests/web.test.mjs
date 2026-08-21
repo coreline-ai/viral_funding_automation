@@ -22,11 +22,13 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   }
   assert.match(html, /전체 바이럴 채널 상태/);
   assert.equal((html.match(/class="channel-grid"/g) ?? []).length, 1);
-  assert.equal((html.match(/<article data-state=/g) ?? []).length, 19);
+  assert.match(html, /id="channel-grid"/);
+  assert.equal((html.match(/<article data-state=/g) ?? []).length, 0);
   assert.match(html, /Facebook·Instagram·Product Hunt·Peerlist·Indie Hackers·OKKY/);
   assert.match(html, /id="draft-editor"/);
   assert.match(html, /id="translation-editor"/);
   assert.match(html, /id="locale-select"/);
+  for (const locale of ["ko-KR", "en-US", "ja-JP", "zh-CN", "es-ES"]) assert.match(html, new RegExp(`value="${locale}"`));
   assert.match(html, /id="provider-auto"/);
   assert.match(html, /id="provider-grok"/);
   assert.match(html, /id="provider-codex"/);
@@ -65,11 +67,15 @@ test("실제 예제 1턴과 마지막 작업 저장·복원 안전장치를 포�
   assert.match(app, /https:\/\/github\.com\/coreline-ai\/memory_node_graph/);
   assert.match(app, /form\.requestSubmit\(\)/);
   assert.match(app, /coreline-launch:workspace:v1/);
-  assert.match(app, /STORAGE_VERSION = 4/);
+  assert.match(app, /STORAGE_VERSION = 7/);
   assert.match(app, /migrateStoredWorkspace/);
   assert.match(app, /workspace\.version === 1/);
   assert.match(app, /workspace\.version !== 2/);
   assert.match(app, /upgradeWorkspaceToV4/);
+  assert.match(app, /upgradeWorkspaceToV5/);
+  assert.match(app, /upgradeWorkspaceToV6/);
+  assert.match(app, /upgradeWorkspaceToV7/);
+  assert.match(app, /workspace-migration\.mjs/);
   assert.match(app, /parsePublish\(key, text\)/);
   assert.match(app, /구조화 초안은 콘텐츠 생성을 다시 눌러 만드세요/);
   assert.match(app, /localStorage\.setItem/);
@@ -125,6 +131,8 @@ test("본문 가독성·반응형·reduced motion 계약을 포함한다", () =>
 
 test("웹 실행 명령은 외부 프레임워크 없이 서버를 시작한다", () => {
   assert.equal(packageJson.scripts.web, "node src/server.mjs");
+  assert.match(packageJson.scripts["web:proxy"], /VIRAL_CODEX_PROXY_CALLER_ID=viral/);
+  assert.match(packageJson.scripts["web:proxy"], /runtime\/secrets\/codex-proxy\.secret/);
   assert.equal(packageJson.dependencies, undefined);
 });
 
@@ -149,6 +157,9 @@ test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를
   assert.match(app, /for \(const \[index, channel\] of targets\.entries\(\)\)/);
   assert.match(app, /일괄 번역 중지/);
   assert.match(app, /isTranslationAllowed/);
+  assert.match(app, /SUPPORTED_LOCALES/);
+  assert.match(app, /previousCompositions/);
+  assert.match(app, /localeLabel/);
   assert.doesNotMatch(app, /Promise\.all\([^)]*requestTranslation|Promise\.all\([^)]*\/api\/translate/);
   assert.match(app, /navigator\.clipboard/);
   assert.match(app, /copyBlockReason/);
@@ -165,4 +176,116 @@ test("수정·탭 유지·복사 fallback·Markdown 다운로드 안전장치를
   assert.match(app, /window\.confirm/);
   assert.match(app, /textContent/);
   assert.doesNotMatch(app, /innerHTML|insertAdjacentHTML|document\.write|news\.hada\.io\/submit/);
+});
+
+test("R0 GUI는 Locale·campaign brief·3축 상태·reference/manual 경계를 반영한다", () => {
+  assert.match(app, /CAMPAIGN_BRIEF_DEFS/);
+  assert.match(app, /currentCampaignBrief/);
+  assert.match(app, /currentOperationInputs/);
+  assert.match(app, /contentStatus/);
+  assert.match(app, /operationsStatus/);
+  assert.match(app, /approvalStatus/);
+  assert.match(app, /publishReady/);
+  assert.match(app, /supportMode\(state\.activeDraft\)/);
+  assert.match(app, /needsTargetLocale/);
+  assert.match(app, /reference_only/);
+  assert.match(html, /현재 결과를 확인하고 승인합니다/);
+});
+
+test("R1 GUI는 격리 미검증 OAuth provider를 준비된 엔진으로 표시하지 않는다", () => {
+  assert.match(app, /securityStatus === "disabled"/);
+  assert.match(app, /보안 격리 미검증/);
+  assert.match(app, /securityStatus === "experimental"/);
+});
+
+test("R2·R3 GUI는 fingerprint 응답 적용과 loopback nonce를 사용한다", () => {
+  assert.match(app, /from "\/request-fingerprint\.mjs"/);
+  assert.match(app, /compositionRequestFingerprint/);
+  assert.match(app, /createCompositionAttempt/);
+  assert.match(app, /assertCurrentCompositionAttempt/);
+  assert.match(app, /원문 또는 작성자 입력이 생성 중 변경되어 결과를 적용하지 않았습니다/);
+  assert.match(app, /X-Viral-Nonce/);
+  assert.match(app, /ensureApiCapabilities/);
+  assert.doesNotMatch(app, /providers\/readiness\?probe=1/);
+});
+
+test("Phase 0 GUI는 단일 플랫폼 registry를 렌더링하며 connector·intent 제어를 노출하지 않는다", () => {
+  assert.match(app, /from "\/platform-registry\.mjs"/);
+  assert.match(app, /platformReadinessList\(\)/);
+  assert.match(app, /function renderPlatformInventory/);
+  assert.match(app, /channelGrid\.replaceChildren\(\)/);
+  assert.match(app, /A1 · 첫 dry-run pilot/);
+  assert.match(app, /A2 · 후속 검증군/);
+  assert.match(app, /manual-only · 자동화 없음/);
+  assert.doesNotMatch(html, /id="(?:connector|publish-intent|social-oauth)/i);
+});
+
+test("Phase 1 GUI는 승인자 입력과 불변 snapshot만 복사 경로로 사용한다", () => {
+  assert.match(html, /id="approval-actor"/);
+  assert.match(html, /id="approval-snapshot-status"/);
+  assert.match(html, /snapshot으로 동결합니다/);
+  assert.match(app, /from "\/publish-intent\.mjs"/);
+  assert.match(app, /assessApprovalRevision/);
+  assert.match(app, /\/api\/v1\/approval-revisions/);
+  assert.match(app, /approvalRevision/);
+  assert.match(app, /function currentApprovalContext/);
+  assert.match(app, /revision\.copyText/);
+  assert.match(app, /PUBLISH_FIELDS_CHANGED/);
+  assert.match(app, /approvalStatus: "unreviewed"/);
+  assert.doesNotMatch(html, /type="password"|accessToken|refreshToken|clientSecret/);
+});
+
+test("Phase 4 GUI는 non-secret readiness·승인 snapshot·session-only interlock으로 local rehearsal만 제공한다", () => {
+  assert.match(html, /id="automation-readiness"/);
+  assert.match(html, /id="readiness-status-grid"/);
+  assert.match(html, /id="platform-readiness-form"/);
+  assert.match(html, /id="platform-readiness-fields"/);
+  assert.match(html, /id="readiness-report-button"/);
+  assert.match(html, /id="readiness-dry-run-button"/);
+  assert.match(html, /PHASE 4 · REHEARSAL/);
+  assert.match(html, /id="readiness-dry-run-result"/);
+  assert.match(html, /id="dry-run-credential-handle"/);
+  assert.match(html, /id="dry-run-kill-switch"/);
+  assert.match(html, /id="dry-run-evidence-button"/);
+  assert.match(app, /from "\/platform-readiness\.mjs"/);
+  assert.match(app, /assessPlatformReadiness/);
+  assert.match(app, /readinessReportMarkdown/);
+  assert.match(app, /crypto\.subtle\.digest\("SHA-256"/);
+  assert.match(`${app}\n${html}`, /실제 플랫폼 요청을 보내지 않습니다/);
+  assert.match(app, /CONNECTION/);
+  assert.match(app, /INTENT/);
+  assert.match(app, /upgradeWorkspacePlatformReadiness/);
+  assert.match(app, /from "\/platforms\/registry\.mjs"/);
+  assert.match(app, /function currentDryRunEligibility/);
+  assert.match(app, /\/api\/v1\/dry-runs/);
+  assert.match(app, /networkWriteCount !== 0/);
+  assert.match(app, /userKillSwitch: "live_write_locked"/);
+  assert.match(app, /Deliberately session-only/);
+  assert.match(app, /state\.dryRunEvidence/);
+  assert.doesNotMatch(html, /type="password"|accessToken|refreshToken|clientSecret/);
+  assert.doesNotMatch(app, /fetch\([^)]*(?:threads\.net|twitter\.com|x\.com|linkedin\.com|facebook\.com|instagram\.com)/i);
+  assert.doesNotMatch(app, /platformReadiness:[^\n]*dryRunCredentialHandle|localStorage[^\n]*dryRunCredentialHandle/i);
+});
+
+test("Phase 5 GUI는 외부 입력을 후순위로 표시하고 실제 게시 capability를 계속 차단한다", () => {
+  assert.match(html, /id="automation-decision"/);
+  assert.match(html, /PHASE 5 · NO-GO/);
+  assert.match(html, /id="go-live-decision"/);
+  assert.match(html, /id="go-live-publish-capability"/);
+  assert.match(html, /id="go-live-deferred-inputs"/);
+  assert.match(html, /id="go-live-report-button"/);
+  assert.match(app, /from "\/automation-go-live\.mjs"/);
+  assert.match(app, /automationGoLiveAssessment/);
+  assert.match(app, /automationGoLiveReportMarkdown/);
+  assert.match(app, /actualPublishCapability \? "활성" : "차단"/);
+  assert.match(app, /social-automation-go-no-go\.md/);
+  assert.doesNotMatch(html, /id="(?:publish|upload|schedule)-button"/i);
+  assert.doesNotMatch(app, /fetch\([^)]*(?:threads\.net|twitter\.com|x\.com|linkedin\.com|facebook\.com|instagram\.com)/i);
+});
+
+test("보안 격리 미검증 OAuth provider는 GUI에서 실행 요청 자체를 막는다", () => {
+  assert.match(app, /function providerExecutionReady/);
+  assert.match(app, /readiness\?\.securityStatus !== "disabled"/);
+  assert.match(app, /OAuth provider는 보안 격리 검증 전에는 실행할 수 없습니다/);
+  assert.match(app, /elements\.translateButton\.disabled = disabled \|\| !ready \|\| !providerReady/);
 });

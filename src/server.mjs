@@ -7,13 +7,24 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildGenerationArtifacts, buildProjectSummary } from "./content.mjs";
 import { fetchRepositoryBaseline, fetchRepositorySource, GitHubApiError } from "./github.mjs";
 import { CliCodexTextRunner, CliGrokTextRunner, GrokProxyError, loadCodexRuntimeConfig, loadGrokRuntimeConfig } from "./grok-oauth-proxy.mjs";
+import { CodexOAuthProxyRunner, loadCodexOAuthProxyConfig } from "./providers/codex-oauth-proxy.mjs";
+import { PublishIntentError, createApprovalRevision, createPublishIntentStore } from "./publish-intent.mjs";
+import { DryRunConnectorError } from "./platforms/connector.mjs";
+import { buildConnectorDryRun, validateConnectorIntent } from "./platforms/registry.mjs";
+import { DryRunEvidenceError, createDryRunEvidenceManifest } from "./dry-run-rehearsal.mjs";
 import { preferredProvider } from "./completion.mjs";
 import { composeDraft, reviewDraft, validateDraft } from "./composition.mjs";
 import { TRANSLATE_MAX_BODY_BYTES, createDefaultTranslateQueue, translatePublishFields } from "./translation.mjs";
 import {
   COMPOSE_RESPONSE_VERSION,
   READINESS_SCHEMA_VERSION,
+  APPROVAL_REVISION_RESPONSE_SCHEMA_VERSION,
+  PUBLISH_INTENT_RESPONSE_SCHEMA_VERSION,
+  DRY_RUN_RESPONSE_SCHEMA_VERSION,
+  assertV1ApprovalRevisionRequest,
   assertV1ComposeRequest,
+  assertV1DryRunRequest,
+  assertV1PublishIntentRequest,
   assertV1ReviewRequest,
   assertV1ValidateRequest,
   attachV1Meta,
@@ -38,7 +49,45 @@ const STATIC_ROUTES = new Map([
   ["/drafts.mjs", { file: "drafts.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/locales.mjs", { file: "locales.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/channel-profiles.mjs", { file: "channel-profiles.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/channel-state.mjs", { file: "channel-state.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/platform-registry.mjs", { file: "platform-registry.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/platform-readiness.mjs", { file: "platform-readiness.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/publish-intent.mjs", { file: "publish-intent.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/request-fingerprint.mjs", { file: "request-fingerprint.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/runtime-security.mjs", { file: "runtime-security.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/workspace-migration.mjs", { file: "workspace-migration.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/dry-run-rehearsal.mjs", { file: "dry-run-rehearsal.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/automation-go-live.mjs", { file: "automation-go-live.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/platforms/connector.mjs", { file: "platforms/connector.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/platforms/threads.mjs", { file: "platforms/threads.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/platforms/registry.mjs", { file: "platforms/registry.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
 ]);
+
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+export function assertLoopbackHost(host = DEFAULT_HOST) {
+  const normalized = String(host ?? "").trim().toLowerCase();
+  if (!LOOPBACK_HOSTS.has(normalized)) {
+    throw new HttpError(503, "LOOPBACK_ONLY", "로컬 API는 127.0.0.1, localhost 또는 ::1에서만 실행할 수 있습니다.");
+  }
+  return normalized;
+}
+
+function hostName(header = "") {
+  const value = String(header).trim().toLowerCase();
+  if (value.startsWith("[")) return value.slice(0, value.indexOf("]") + 1);
+  return value.split(":", 1)[0];
+}
+
+function isLoopbackHostHeader(header) {
+  return LOOPBACK_HOSTS.has(hostName(header));
+}
+
+function allowedOrigin(request) {
+  const host = String(request.headers.host ?? "").toLowerCase();
+  const origin = String(request.headers.origin ?? "").toLowerCase();
+  return Boolean(host) && origin === `http://${host}` && isLoopbackHostHeader(host);
+}
 
 class HttpError extends Error {
   constructor(status, code, message, headers = {}) {
@@ -108,6 +157,11 @@ async function readJsonBody(request, maxBytes = MAX_BODY_BYTES) {
 
 function mapApplicationError(error) {
   if (error instanceof HttpError) return error;
+  if (error instanceof PublishIntentError || error instanceof DryRunConnectorError || error instanceof DryRunEvidenceError) {
+    const mapped = new HttpError(error.status, error.code, error.message);
+    mapped.retryable = error.retryable;
+    return mapped;
+  }
   if (error instanceof GrokProxyError) {
     return new HttpError(error.status, error.code, error.message);
   }
@@ -206,17 +260,27 @@ async function serveStatic(request, response, route, webRoot) {
 }
 
 export function createAppServer(options = {}) {
+  const bindHost = assertLoopbackHost(options.host ?? DEFAULT_HOST);
+  const launchNonce = options.launchNonce ?? globalThis.crypto.randomUUID();
+  const requestGuardsEnabled = options.requestGuards !== false;
+  let lastProbeAt = 0;
   const webRoot = resolve(options.webRoot ?? DEFAULT_WEB_ROOT);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const token = options.token ?? process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   const onError = options.onError ?? ((error) => console.error(error));
   const grokConfig = options.grokConfig ?? loadGrokRuntimeConfig(options.env ?? process.env);
   const grokRunner = options.grokRunner ?? new CliGrokTextRunner(grokConfig);
+  const codexProxyConfig = options.codexProxyConfig ?? loadCodexOAuthProxyConfig(options.env ?? process.env);
   const codexConfig = options.codexConfig ?? loadCodexRuntimeConfig(options.env ?? process.env);
-  const codexRunner = options.codexRunner ?? new CliCodexTextRunner(codexConfig);
+  // OAuth credentials and CLI execution belong to the already logged-in
+  // loopback Proxy. Direct CLI is retained only as the legacy disabled path.
+  const codexRunner = options.codexRunner ?? (codexProxyConfig.enabled
+    ? new CodexOAuthProxyRunner(codexProxyConfig, { fetchImpl })
+    : new CliCodexTextRunner(codexConfig));
   const translateQueue = options.translateQueue ?? createDefaultTranslateQueue(options.env ?? process.env);
+  const publishIntentStore = options.publishIntentStore ?? createPublishIntentStore();
 
-  return createNodeServer(async (request, response) => {
+  const server = createNodeServer(async (request, response) => {
     let requestId = "";
     let v1 = false;
     try {
@@ -224,11 +288,23 @@ export function createAppServer(options = {}) {
       v1 = requestUrl.pathname.startsWith("/api/v1/");
       requestId = readRequestId({}, request.headers);
 
+      if (v1 && !isLoopbackHostHeader(request.headers.host)) {
+        throw new HttpError(421, "INVALID_HOST", "loopback Host 헤더만 허용합니다.");
+      }
+      const requireProtectedV1Post = () => {
+        if (!requestGuardsEnabled) return;
+        if (!allowedOrigin(request)) throw new HttpError(403, "INVALID_ORIGIN", "동일 loopback origin 요청만 허용합니다.");
+        if (request.headers["x-viral-nonce"] !== launchNonce) {
+          throw new HttpError(403, "INVALID_NONCE", "로컬 API nonce가 일치하지 않습니다.");
+        }
+      };
+
       if (requestUrl.pathname === "/api/v1/capabilities") {
         if (request.method !== "GET") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "GET 요청만 지원합니다.", { Allow: "GET" });
         }
-        sendJson(response, 200, buildCapabilities(requestId));
+        const port = Number(String(request.headers.host ?? "").split(":").at(-1)) || DEFAULT_PORT;
+        sendJson(response, 200, buildCapabilities(requestId, { host: bindHost, port, nonce: launchNonce }), { "X-Request-ID": requestId });
         return;
       }
 
@@ -250,15 +326,38 @@ export function createAppServer(options = {}) {
         if (request.method !== "GET") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "GET 요청만 지원합니다.", { Allow: "GET" });
         }
-        const probeAuth = requestUrl.searchParams.get("probe") === "1";
         const [grok, codex] = await Promise.all([
-          grokRunner.readiness({ probeAuth }),
-          codexRunner.readiness({ probeAuth }),
+          grokRunner.readiness({ probeAuth: false }),
+          codexRunner.readiness({ probeAuth: false }),
         ]);
         sendJson(response, 200, attachV1Meta({
           grok: sanitizePublicReadiness(grok, "grok"),
           codex: sanitizePublicReadiness(codex, "codex"),
-        }, { schemaVersion: READINESS_SCHEMA_VERSION, requestId }));
+        }, { schemaVersion: READINESS_SCHEMA_VERSION, requestId }), { "X-Request-ID": requestId });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/providers/probe") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        requireProtectedV1Post();
+        await readJsonBody(request);
+        if (Date.now() - lastProbeAt < 60_000) {
+          throw new HttpError(429, "PROBE_RATE_LIMITED", "인증 확인은 1분에 한 번만 실행할 수 있습니다.", { "Retry-After": "60" });
+        }
+        lastProbeAt = Date.now();
+        const probeAbort = new AbortController();
+        request.once("close", () => { if (!response.headersSent) probeAbort.abort(); });
+        const [grok, codex] = await translateQueue.run(async () => Promise.all([
+          grokRunner.readiness({ probeAuth: true }),
+          codexRunner.readiness({ probeAuth: true }),
+        ]), { signal: probeAbort.signal, timeoutMs: 90_000 });
+        sendJson(response, 200, attachV1Meta({
+          grok: sanitizePublicReadiness(grok, "grok"),
+          codex: sanitizePublicReadiness(codex, "codex"),
+          probed: true,
+        }, { schemaVersion: READINESS_SCHEMA_VERSION, requestId }), { "X-Request-ID": requestId });
         return;
       }
 
@@ -283,6 +382,7 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
+        requireProtectedV1Post();
         const payload = assertV1ComposeRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
         requestId = readRequestId(payload, request.headers);
         const abort = new AbortController();
@@ -293,11 +393,12 @@ export function createAppServer(options = {}) {
           runners: { grok: grokRunner, codex: codexRunner },
           queue: translateQueue,
           signal: abort.signal,
+          deadlineMs: 90_000,
         });
         sendJson(response, 200, attachV1Meta(result, {
           schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
           requestId,
-        }));
+        }), { "X-Request-ID": requestId });
         return;
       }
 
@@ -305,6 +406,7 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
+        requireProtectedV1Post();
         const payload = assertV1ReviewRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
         requestId = readRequestId(payload, request.headers);
         const requested = payload?.provider === "auto" ? "auto" : payload?.provider === "codex" ? "codex" : "grok";
@@ -318,11 +420,12 @@ export function createAppServer(options = {}) {
           runners: { grok: grokRunner, codex: codexRunner },
           queue: translateQueue,
           signal: abort.signal,
+          deadlineMs: 90_000,
         });
         sendJson(response, 200, attachV1Meta(result, {
           schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
           requestId,
-        }));
+        }), { "X-Request-ID": requestId });
         return;
       }
 
@@ -330,13 +433,84 @@ export function createAppServer(options = {}) {
         if (request.method !== "POST") {
           throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
         }
+        requireProtectedV1Post();
         const payload = assertV1ValidateRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
         requestId = readRequestId(payload, request.headers);
         const result = validateDraft(payload);
         sendJson(response, 200, attachV1Meta(result, {
           schemaVersion: result.schemaVersion ?? COMPOSE_RESPONSE_VERSION,
           requestId,
-        }));
+        }), { "X-Request-ID": requestId });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/approval-revisions") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        requireProtectedV1Post();
+        const payload = assertV1ApprovalRevisionRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
+        requestId = readRequestId(payload, request.headers);
+        const approvalRevision = createApprovalRevision(payload);
+        sendJson(response, 200, {
+          schemaVersion: APPROVAL_REVISION_RESPONSE_SCHEMA_VERSION,
+          requestId,
+          approvalRevision,
+        }, { "X-Request-ID": requestId });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/publish-intents") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        requireProtectedV1Post();
+        const payload = assertV1PublishIntentRequest(await readJsonBody(request, TRANSLATE_MAX_BODY_BYTES));
+        requestId = readRequestId(payload, request.headers);
+        const publishIntent = publishIntentStore.create({ approvalRevision: payload.approvalRevision });
+        sendJson(response, 200, {
+          schemaVersion: PUBLISH_INTENT_RESPONSE_SCHEMA_VERSION,
+          requestId,
+          publishIntent,
+        }, { "X-Request-ID": requestId });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/v1/dry-runs") {
+        if (request.method !== "POST") {
+          throw new HttpError(405, "METHOD_NOT_ALLOWED", "POST 요청만 지원합니다.", { Allow: "POST" });
+        }
+        requireProtectedV1Post();
+        const payload = assertV1DryRunRequest(await readJsonBody(request));
+        requestId = readRequestId(payload, request.headers);
+        // Validate before writing to the process-local duplicate store so a
+        // broken readiness attestation cannot reserve a publication key.
+        validateConnectorIntent({
+          approvalRevision: payload.approvalRevision,
+          readiness: payload.readiness,
+          operationInputs: payload.operationInputs ?? {},
+        });
+        const publishIntent = publishIntentStore.create({
+          approvalRevision: payload.approvalRevision,
+          readiness: payload.readiness,
+          operationInputs: payload.operationInputs ?? {},
+        });
+        const dryRun = buildConnectorDryRun({
+          approvalRevision: payload.approvalRevision,
+          readiness: payload.readiness,
+          operationInputs: payload.operationInputs ?? {},
+          publishIntent,
+          credentialHandle: payload.credentialHandle,
+          safety: payload.safety,
+        });
+        const evidenceManifest = createDryRunEvidenceManifest(dryRun);
+        sendJson(response, 200, {
+          schemaVersion: DRY_RUN_RESPONSE_SCHEMA_VERSION,
+          requestId,
+          publishIntent,
+          dryRun,
+          evidenceManifest,
+        }, { "X-Request-ID": requestId });
         return;
       }
 
@@ -368,7 +542,14 @@ export function createAppServer(options = {}) {
       if (mapped.status === 500) onError(error);
       if (v1) {
         const envelope = v1ErrorEnvelope(requestId, mapped);
-        sendJson(response, envelope.status, envelope.body, mapped.headers);
+        const retryAfter = envelope.status === 429 || envelope.status === 503
+          ? (mapped.headers?.["Retry-After"] ?? "30")
+          : undefined;
+        sendJson(response, envelope.status, envelope.body, {
+          ...mapped.headers,
+          "X-Request-ID": requestId,
+          ...(retryAfter ? { "Retry-After": retryAfter } : {}),
+        });
         return;
       }
       sendJson(response, mapped.status, {
@@ -376,6 +557,17 @@ export function createAppServer(options = {}) {
       }, mapped.headers);
     }
   });
+
+  // Keep the exported factory loopback-only too. The CLI already passes a
+  // checked host, but tests/embedding callers must not accidentally bind the
+  // OAuth execution server to every interface through Node's default listen.
+  const nodeListen = server.listen.bind(server);
+  server.listen = function loopbackListen(port, hostOrCallback, callback) {
+    const host = typeof hostOrCallback === "string" ? assertLoopbackHost(hostOrCallback) : bindHost;
+    const listener = typeof hostOrCallback === "function" ? hostOrCallback : callback;
+    return nodeListen(port, host, listener);
+  };
+  return server;
 }
 
 function parsePort(value) {
@@ -388,9 +580,9 @@ function parsePort(value) {
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
 if (import.meta.url === invokedPath) {
-  const host = process.env.HOST?.trim() || DEFAULT_HOST;
+  const host = assertLoopbackHost(process.env.HOST?.trim() || DEFAULT_HOST);
   const port = parsePort(process.env.PORT);
-  const server = createAppServer();
+  const server = createAppServer({ host });
   server.listen(port, host, () => {
     console.log(`Coreline Launch: http://${host}:${port}`);
     console.log("종료: Ctrl+C");

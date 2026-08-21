@@ -9,6 +9,9 @@
   "scripts": {
     "generate": "node src/cli.mjs",
     "web": "node src/server.mjs",
-    "test": "node --test"
+    "web:proxy": "VIRAL_CODEX_PROXY_BASE_URL=http://127.0.0.1:4348 VIRAL_CODEX_PROXY_CALLER_ID=viral VIRAL_CODEX_PROXY_SECRET_FILE=\"$PWD/runtime/secrets/codex-proxy.secret\" node src/server.mjs",
+    "test": "node --test",
+    "api:contract": "node scripts/generate-openapi-field-contract.mjs",
+    "api:contract:check": "node scripts/generate-openapi-field-contract.mjs --check"
   }
 }

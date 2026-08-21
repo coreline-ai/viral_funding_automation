@@ -577,7 +577,7 @@ function renderIndieHackersDraft(summary) {
 
 ## 제목
 
-I built ${summary.name} and I am looking for feedback on the first-use flow
+How should ${summary.name} improve its first-use flow?
 
 ## 본문
 
@@ -824,7 +824,7 @@ ${bulletList(publicNotes(summary), "- 공개 범위와 실행 조건은 README�
     }),
     indieHackers: () => createDraftDocument("indieHackers", {
       publishFields: {
-        title: `I built ${summary.name} and I am looking for feedback on the first-use flow`,
+        title: `How should ${summary.name} improve its first-use flow?`,
         body: `${asSentence(channelDescription(summary))}\n\n${bulletList(featureList(summary, 4))}`,
       },
     }),

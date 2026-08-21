@@ -18,6 +18,7 @@ import { composeDraft, reviewDraft, validateDraft } from "../src/composition.mjs
 import { buildDraftDocuments, buildProjectSummary } from "../src/content.mjs";
 import { CHANNEL_KEYS, createDraftDocument, fieldContract, validatePublish } from "../src/drafts.mjs";
 import { FakeGrokTextRunner } from "../src/grok-oauth-proxy.mjs";
+import { applyVerifiedCopy, loadVerifiedPublishFields } from "../src/verified-copy.mjs";
 
 const source = {
   input: { owner: "coreline-ai", repo: "memory_node_graph", fullName: "coreline-ai/memory_node_graph", url: "https://github.com/coreline-ai/memory_node_graph" },
@@ -45,21 +46,28 @@ const facts = {
   technologies: [],
 };
 
-test("지원 채널 전체가 예상 status와 field contract를 가진다", () => {
+test("지원 채널 전체가 Locale·지원 모드·field contract를 가진다", () => {
   const matrix = policyMatrix();
   assert.deepEqual(Object.keys(matrix).sort(), [...CHANNEL_KEYS].sort());
   assert.equal(matrix.showHn.translationPolicy, "disabled");
   assert.equal(matrix.showHn.preferredProvider, null);
   assert.deepEqual(matrix.showHn.publishFields, []);
-  assert.equal(matrix.reddit.translationPolicy, "draftOnly");
-  assert.deepEqual(matrix.reddit.requiredAuthorInputs, ["subreddit", "rules", "flair"]);
-  assert.equal(matrix.dev.translationPolicy, "draftOnly");
+  assert.equal(matrix.reddit.supportMode, "reference_only");
+  assert.equal(matrix.dev.supportMode, "reference_only");
+  assert.equal(matrix.showHn.supportMode, "manual_only");
+  assert.equal(matrix.geeknews.defaultLocale, "ko-KR");
+  assert.equal(matrix.okky.defaultLocale, "ko-KR");
+  assert.equal(matrix.disquiet.defaultLocale, "ko-KR");
+  assert.ok(matrix.linkedin.supportedLocales.includes("ja-JP"));
+  assert.ok(matrix.linkedin.supportedLocales.includes("zh-CN"));
+  assert.ok(matrix.linkedin.supportedLocales.includes("es-ES"));
+  assert.equal(matrix.geeknews.supportedLocales.includes("ja-JP"), false);
   assert.ok(matrix.dev.requiredAuthorInputs.includes("aiDisclosure"));
   assert.equal(matrix.facebook.publishFields.includes("reelsCaption"), true);
   assert.equal(matrix.facebook.publishFields.includes("groupBody"), true);
   assert.equal(matrix.instagram.publishFields.includes("cover"), true);
   assert.equal(matrix.instagram.publishFields.includes("caption"), true);
-  assert.ok(prepublishGates("facebook").some((gate) => gate.key === "originalVideo"));
+  assert.ok(prepublishGates("facebook").some((gate) => gate.key === "originalContentConfirmed"));
   assert.ok(prepublishGates("geeknews").some((gate) => gate.key === "showCategory"));
 
   const items = buildDraftDocuments(buildProjectSummary(source));
@@ -71,24 +79,21 @@ test("지원 채널 전체가 예상 status와 field contract를 가진다", () 
       assert.deepEqual(document.publishFields, {});
       continue;
     }
-    assert.ok(validatePublish(channel, document.publishFields).ok, channel);
+    if (channel !== "facebook") assert.ok(validatePublish(channel, document.publishFields).ok, channel);
     assert.match(fieldContract(channel).join(","), /:/);
   }
 });
 
-test("전문가 검토 HOLD·manual 정책과 구현이 일치한다", () => {
+test("전문가 검토의 reference/manual 정책과 3축 상태가 일치한다", () => {
   const { hold, draftOnly, manual } = reviewPolicyMatchesHold();
   assert.deepEqual(hold.sort(), ["dev", "indieHackers", "peerlist", "productHunt", "reddit", "showHn"].sort());
   assert.deepEqual(draftOnly.sort(), ["dev", "reddit"]);
   assert.deepEqual(manual, ["showHn"]);
-  assert.equal(mapCompletionStatus("reddit"), "needs_input");
-  assert.equal(mapCompletionStatus("indieHackers"), "needs_input");
-  assert.equal(mapCompletionStatus("dev", {
-    authorInputs: { realCase: "x", code: "y", failure: "z", aiDisclosure: "used" },
-    validationOk: true,
-  }), "needs_input");
-  assert.equal(mapCompletionStatus("showHn"), "manual_only");
-  assert.equal(mapCompletionStatus("peerlist", { validationOk: true }), "needs_review");
+  assert.equal(mapCompletionStatus("reddit", { validationOk: true }), "reference_ready");
+  assert.equal(mapCompletionStatus("indieHackers", { validationOk: true }), "needs_input");
+  assert.equal(mapCompletionStatus("dev", { validationOk: true }), "reference_ready");
+  assert.equal(mapCompletionStatus("showHn", { validationOk: true }), "manual_only");
+  assert.equal(mapCompletionStatus("peerlist", { validationOk: true }), "candidate");
 });
 
 test("한국어 운영 문구와 홍보 글은 영어 게시 필드에서 거부된다", () => {
@@ -108,6 +113,10 @@ test("한국어 운영 문구와 홍보 글은 영어 게시 필드에서 거부
     caption: "caption",
   });
   assert.equal(instagram.ok, false);
+  const verifiedFacebook = loadVerifiedPublishFields().facebook;
+  assert.equal(verifiedFacebook.groupBody, "");
+  const verifiedItems = applyVerifiedCopy({ repository: "coreline-ai/memory_node_graph", demoUrl: "https://ai-systems-atlas.vercel.app/" }, buildDraftDocuments(buildProjectSummary(source)));
+  assert.ok(verifiedItems.facebook.internal.notes.some((note) => note.includes("Facebook 그룹 본문")));
 });
 
 test("반복 훅·CTA 검사는 같은 템플릿을 경고한다", () => {
@@ -121,35 +130,22 @@ test("반복 훅·CTA 검사는 같은 템플릿을 경고한다", () => {
   assert.ok(warnings.some((item) => item.code === "REPEATED_CTA"));
 });
 
-test("Reddit·Indie Hackers·DEV는 입력 없이 ready가 되지 않는다", async () => {
+test("Reddit·DEV는 reference-only이며 Indie Hackers는 typed 입력 전 후보가 아니다", async () => {
   let calls = 0;
   const runner = new FakeGrokTextRunner(async () => {
     calls += 1;
     return { englishSummary: { oneSentence: "x", shortIntro: "x", features: [], demoBoundary: "x" }, publishFields: { facts: { name: "AI Systems Atlas" } } };
   });
-  const reddit = await composeDraft({
-    channel: "reddit",
-    sourceLocale: "ko-KR",
-    targetLocale: "en-US",
-    publishFields: { facts: { name: "AI Systems Atlas", description: "graph", demoUrl: "", repositoryUrl: "https://github.com/a/b", license: "MIT", features: [] } },
-    facts,
-  }, { runner });
-  assert.equal(reddit.status, "needs_input");
+  const referenceFields = { facts: { name: "AI Systems Atlas", description: "graph", demoUrl: "", repositoryUrl: "https://github.com/a/b", license: "MIT", features: [] } };
+  const reddit = await composeDraft({ channel: "reddit", sourceLocale: "ko-KR", targetLocale: "en-US", publishFields: referenceFields, facts }, { runner });
+  assert.equal(reddit.contentStatus, "reference_ready");
   const indie = await composeDraft({
-    channel: "indieHackers",
-    sourceLocale: "ko-KR",
-    targetLocale: "en-US",
-    publishFields: { title: "AI Systems Atlas", body: "AI Systems Atlas https://memory.example" },
-    facts,
+    channel: "indieHackers", sourceLocale: "ko-KR", targetLocale: "en-US",
+    publishFields: { title: "AI Systems Atlas", body: "AI Systems Atlas https://memory.example" }, facts,
   }, { runner });
-  assert.equal(indie.status, "needs_input");
-  const dev = validateDraft({
-    channel: "dev",
-    publishFields: { facts: { name: "AI Systems Atlas", description: "graph" } },
-    facts,
-  });
-  assert.equal(dev.status, "needs_input");
-  assert.ok(dev.missingInputs.includes("aiDisclosure"));
+  assert.equal(indie.contentStatus, "needs_input");
+  const dev = validateDraft({ channel: "dev", publishFields: referenceFields, facts });
+  assert.equal(dev.contentStatus, "reference_ready");
   assert.equal(calls, 0);
 });
 
@@ -172,7 +168,7 @@ test("Show HN은 compose·review에서 provider를 호출하지 않는다", asyn
     targetLocale: "en-US",
     publishFields: {},
     facts,
-  }, { runner }), /영문 재구성/);
+  }, { runner }), /AI 검토 실행/);
   assert.equal(calls, 0);
   assert.deepEqual(createDraftDocument("showHn").publishFields, {});
 });

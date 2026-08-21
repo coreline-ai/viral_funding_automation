@@ -1,9 +1,50 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CliCodexTextRunner, FakeGrokTextRunner, GROK_TEXT_SYSTEM_PROMPT, childEnvironment, grokDisallowedTools, loadCodexRuntimeConfig, loadGrokRuntimeConfig, normalizeTranslationProvider } from "../src/grok-oauth-proxy.mjs";
+import { BoundedConversationQueue, CliCodexTextRunner, FakeGrokTextRunner, GROK_TEXT_SYSTEM_PROMPT, buildMacSandboxProfile, childEnvironment, grokDisallowedTools, loadCodexRuntimeConfig, loadGrokRuntimeConfig, normalizeTranslationProvider } from "../src/grok-oauth-proxy.mjs";
 import { CliGrokTextRunner } from "../src/grok-oauth-proxy.mjs";
 import { buildGrokPrompt, englishOutputSchema, translatePublishFields, validateTranslateRequest } from "../src/translation.mjs";
+
+const TEST_SANDBOX = {
+  sandboxCommand: process.execPath,
+  oauthHome: "/tmp/viral-oauth-test-home",
+  securityStatus: "restricted",
+};
+
+test("취소된 pending queue 항목은 provider를 시작하지 않고 제거된다", async () => {
+  const queue = new BoundedConversationQueue(1, 2);
+  let started = 0;
+  let release;
+  const first = queue.run(async () => {
+    started += 1;
+    await new Promise((resolve) => { release = resolve; });
+    return "first";
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const controller = new AbortController();
+  const pending = queue.run(async () => { started += 1; return "should-not-run"; }, { signal: controller.signal });
+  controller.abort();
+  await assert.rejects(pending, (error) => error?.code === "GROK_TIMEOUT" && error?.status === 499);
+  assert.equal(queue.snapshot().pending, 0);
+  release();
+  await first;
+  assert.equal(started, 1);
+});
+
+test("queue deadline은 대기 시간부터 적용된다", async () => {
+  const queue = new BoundedConversationQueue(1, 2);
+  let release;
+  const first = queue.run(async () => new Promise((resolve) => { release = resolve; }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  let started = false;
+  await assert.rejects(
+    queue.run(async () => { started = true; return "late"; }, { timeoutMs: 10 }),
+    (error) => error?.code === "GROK_TIMEOUT" && error?.status === 504,
+  );
+  assert.equal(started, false);
+  release();
+  await first;
+});
 
 test("자식 환경에서 XAI_API_KEY를 제거한다", () => {
   const previous = process.env.XAI_API_KEY;
@@ -37,11 +78,14 @@ test("번역 runner는 기본 reasoning을 low로 두고 에이전트 경로를 
   assert.equal(config.permissionMode, "dontAsk");
   assert.throws(() => loadGrokRuntimeConfig({ GROK_BIN: "/usr/bin/grok", GROK_REASONING_EFFORT: "ultra" }), /GROK_REASONING_EFFORT/);
   assert.throws(() => loadGrokRuntimeConfig({ GROK_BIN: "/usr/bin/grok", GROK_PERMISSION_MODE: "bypassPermissions" }), /GROK_PERMISSION_MODE/);
+  assert.equal(loadCodexRuntimeConfig({ CODEX_BIN: "/usr/bin/codex" }).securityStatus, "disabled");
 });
 
-test("CLI runner는 prompt-file과 disallowed-tools를 사용한다", async () => {
+test("Grok runner는 OS sandbox와 명시적 zero-tool allowlist를 사용한다", async () => {
   const argsSeen = [];
-  const runner = new CliGrokTextRunner({ cliCommand: "/usr/bin/grok", timeoutMs: 1000 }, async (_command, args) => {
+  let commandSeen = "";
+  const runner = new CliGrokTextRunner({ cliCommand: "/usr/bin/grok", timeoutMs: 1000, ...TEST_SANDBOX }, async (command, args) => {
+    commandSeen = command;
     argsSeen.push(args);
     return { code: 0, stdout: JSON.stringify({ englishSummary: { oneSentence: "A", shortIntro: "B", features: [], demoBoundary: "C" }, publishFields: { body: "AI Systems Atlas https://example.com" } }), stderr: "" };
   });
@@ -50,25 +94,30 @@ test("CLI runner는 prompt-file과 disallowed-tools를 사용한다", async () =
     prompt: "hello",
     schema: { type: "object" },
   });
-  const args = argsSeen[0];
+  assert.equal(commandSeen, process.execPath);
+  assert.equal(argsSeen[0][0], "-p");
+  assert.match(argsSeen[0][1], /\(deny default\)/);
+  assert.doesNotMatch(argsSeen[0][1], /subpath \"\/tmp\/viral-oauth-test-home\"/);
+  const args = argsSeen[0].slice(3);
   assert.ok(args.includes("--prompt-file"));
   assert.ok(args.includes("--json-schema"));
-  assert.ok(args.includes("--disallowed-tools"));
+  assert.ok(args.includes("--tools"));
   assert.ok(args.includes("--verbatim"));
   assert.ok(args.includes("--no-plan"));
   assert.equal(args[args.indexOf("--reasoning-effort") + 1], "low");
   assert.equal(args[args.indexOf("--permission-mode") + 1], "dontAsk");
   assert.equal(args[args.indexOf("--system-prompt-override") + 1], GROK_TEXT_SYSTEM_PROMPT);
-  assert.equal(args[args.indexOf("--disallowed-tools") + 1], grokDisallowedTools);
+  assert.equal(args[args.indexOf("--tools") + 1], grokDisallowedTools);
 });
 
 test("Codex runner는 exec와 output-schema를 사용한다", async () => {
   const argsSeen = [];
   let stdinSeen = "";
-  const runner = new CliCodexTextRunner({ cliCommand: "/usr/bin/codex", timeoutMs: 1000 }, async (_command, args, options) => {
+  const runner = new CliCodexTextRunner({ cliCommand: "/usr/bin/codex", timeoutMs: 1000, ...TEST_SANDBOX, securityStatus: "experimental" }, async (_command, args, options) => {
     argsSeen.push(args);
     stdinSeen = options.stdin;
-    assert.match(args[args.indexOf("--output-schema") + 1], /schema\.json$/);
+    const cliArgs = args.slice(3);
+    assert.match(cliArgs[cliArgs.indexOf("--output-schema") + 1], /schema\.json$/);
     return {
       code: 0,
       stdout: JSON.stringify({ englishSummary: { oneSentence: "A", shortIntro: "B", features: [], demoBoundary: "C" }, publishFields: { body: "ok" } }),
@@ -80,25 +129,67 @@ test("Codex runner는 exec와 output-schema를 사용한다", async () => {
     prompt: "hello",
     schema: { type: "object" },
   });
-  assert.ok(argsSeen[0].includes("exec"));
-  assert.ok(argsSeen[0].includes("--ephemeral"));
-  assert.ok(argsSeen[0].includes("--output-schema"));
-  assert.ok(argsSeen[0].includes("--skip-git-repo-check"));
-  assert.ok(argsSeen[0].includes("--ignore-user-config"));
-  assert.equal(argsSeen[0][argsSeen[0].indexOf("--sandbox") + 1], "read-only");
-  assert.ok(!argsSeen[0].includes("workspace-write"));
-  assert.ok(!argsSeen[0].includes("-o"));
+  const cliArgs = argsSeen[0].slice(3);
+  assert.ok(cliArgs.includes("exec"));
+  assert.ok(cliArgs.includes("--ephemeral"));
+  assert.ok(cliArgs.includes("--output-schema"));
+  assert.ok(cliArgs.includes("--skip-git-repo-check"));
+  assert.ok(cliArgs.includes("--ignore-user-config"));
+  assert.equal(cliArgs[cliArgs.indexOf("--sandbox") + 1], "read-only");
+  assert.ok(!cliArgs.includes("workspace-write"));
+  assert.ok(!cliArgs.includes("-o"));
   assert.match(stdinSeen, /hello/);
   assert.equal(result.payload.publishFields.body, "ok");
 });
 
 test("출력 한도를 넘기면 원문을 저장하지 않고 거절한다", async () => {
-  const runner = new CliGrokTextRunner({ cliCommand: "/usr/bin/grok", timeoutMs: 1000, maxOutputChars: 64 }, async () => ({
+  const runner = new CliGrokTextRunner({ cliCommand: "/usr/bin/grok", timeoutMs: 1000, maxOutputChars: 64, ...TEST_SANDBOX }, async () => ({
     code: 0,
     stdout: "x".repeat(80),
     stderr: "",
   }));
   await assert.rejects(() => runner.run({ requestId: "req_limit", prompt: "hello", schema: { type: "object" } }), /출력 한도/);
+});
+
+test("sandbox profile은 OAuth auth 파일만 읽고 외부 canary 경로를 허용하지 않는다", () => {
+  const profile = buildMacSandboxProfile({
+    cliCommand: "/usr/bin/grok",
+    workspace: "/tmp/viral-security-workspace",
+    provider: "grok",
+    oauthHome: "/Users/demo",
+  });
+  assert.match(profile, /\(deny default\)/);
+  assert.match(profile, /\.grok\\?"?\/auth\.json/);
+  assert.doesNotMatch(profile, /\/Users\/demo\\?"?\)/);
+  assert.doesNotMatch(profile, /canary-secret/);
+});
+
+test("CLI provider 결과의 비밀·개인 경로는 runtime에서 차단하고 raw 진단을 반환하지 않는다", async () => {
+  const runner = new CliGrokTextRunner({ cliCommand: "/usr/bin/grok", timeoutMs: 1000, ...TEST_SANDBOX }, async () => ({
+    code: 0,
+    stdout: JSON.stringify({ englishSummary: { oneSentence: "A", shortIntro: "B", features: [], demoBoundary: "C" }, publishFields: { body: "Bearer super-secret-token-value-123456" } }),
+    stderr: "VIRAL_CANARY_should_not_return",
+  }));
+  await assert.rejects(() => runner.run({ requestId: "req_dlp", prompt: "hello", schema: { type: "object" } }), (error) => {
+    assert.equal(error.code, "SENSITIVE_PROVIDER_OUTPUT");
+    assert.doesNotMatch(error.message, /secret|canary/i);
+    return true;
+  });
+});
+
+test("격리 capability가 증명되지 않은 provider는 child spawn 전에 fail-closed한다", async () => {
+  let calls = 0;
+  const runner = new CliGrokTextRunner({
+    cliCommand: "/usr/bin/grok",
+    timeoutMs: 1000,
+    sandboxCommand: "",
+    securityStatus: "disabled",
+  }, async () => {
+    calls += 1;
+    return { code: 0, stdout: "{}", stderr: "" };
+  });
+  await assert.rejects(() => runner.run({ requestId: "req_disabled", prompt: "read a canary file", schema: { type: "object" } }), (error) => error?.code === "PROVIDER_SECURITY_DISABLED");
+  assert.equal(calls, 0);
 });
 
 test("fake runner로 허용 채널 영문 필드가 생성된다", async () => {
@@ -175,6 +266,14 @@ test("Grok 출력이 레지스트리 계약과 다르면 거절하고 변환하�
     targetLocale: "en-US",
     publishFields: { segments: ["1/3 AI Systems Atlas", "2/3 기능", "3/3 https://memory.example"] },
     facts,
+    campaignBrief: {
+      publisherRole: "owner",
+      accountVoice: "organization",
+      ownershipConfirmed: true,
+      goal: "feedback",
+      audience: "developers",
+      targetLocale: "en-US",
+    },
   }, {
     runner: new FakeGrokTextRunner(async () => ({
       englishSummary: summary,
@@ -207,6 +306,14 @@ test("Grok 출력이 레지스트리 계약과 다르면 거절하고 변환하�
     targetLocale: "en-US",
     publishFields: { segments: ["1/3 AI Systems Atlas", "2/3 기능", "3/3 https://memory.example"] },
     facts,
+    campaignBrief: {
+      publisherRole: "owner",
+      accountVoice: "organization",
+      ownershipConfirmed: true,
+      goal: "feedback",
+      audience: "developers",
+      targetLocale: "en-US",
+    },
   }, {
     runner: new FakeGrokTextRunner(async () => ({
       englishSummary: summary,

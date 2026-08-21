@@ -45,7 +45,9 @@ export function loadVerifiedPublishFields() {
     },
     facebook: {
       reelsCaption: blocks[11],
-      groupBody: "자기홍보와 외부 링크를 허용하는 그룹 규칙을 확인한 뒤 작성자가 다시 씁니다.",
+      // Group-specific copy must not contain an internal publishing instruction.
+      // It remains empty until the selected group and its rules are supplied.
+      groupBody: "",
     },
     instagram: { cover: blocks[12], caption: blocks[13] },
     productHunt: {
@@ -67,6 +69,13 @@ export function applyVerifiedCopy(summary, items) {
   return Object.fromEntries(Object.entries(items).map(([channel, document]) => {
     const publishFields = overlay[channel];
     if (!publishFields) return [channel, document];
-    return [channel, { ...document, publishFields }];
+    const internal = channel === "facebook"
+      ? {
+        ...document.internal,
+        prepublish: [...new Set([...(document.internal?.prepublish ?? []), "groupName", "groupLocale", "ruleUrl", "rulesCheckedAt", "originalContentConfirmed"])],
+        notes: [...(document.internal?.notes ?? []), "Facebook 그룹 본문은 선택한 그룹과 규칙을 확인한 뒤에만 작성합니다."],
+      }
+      : document.internal;
+    return [channel, { ...document, publishFields, internal }];
   }));
 }

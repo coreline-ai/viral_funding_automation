@@ -13,7 +13,15 @@
 
 - 공개 저장소만 지원하며 원본 저장소는 수정하지 않음
 - README, license, 저장소 metadata, 선택적 `package.json`만 읽음
-- 외부 플랫폼 19개의 `초안·운영 게이트·보류·후순위` 상태 표시
+- 외부 플랫폼 19개의 상태를 [`src/platform-registry.mjs`](src/platform-registry.mjs) 단일 registry에서 표시
+  - Threads는 첫 text dry-run pilot, X·LinkedIn은 후속 검증군으로만 표시
+  - manual-only 채널은 connector·publish intent 선택 대상이 아니며, Threads·X·LinkedIn만 **local dry-run** payload planner를 제공
+  - local dry-run은 승인 snapshot·readiness를 대조해 payload 계획과 simulated receipt만 만들며 외부 플랫폼 HTTP write는 항상 `0회`
+  - local dry-run 실행에는 session-only opaque credential reference와 `live_write_locked` user kill switch가 모두 필요함. reference와 잠금 상태는 `localStorage`에 저장하지 않음
+  - safe evidence JSON은 ID·hash·마스킹 계정·endpoint class·`networkWriteCount: 0`만 내보내고 원고 전문·credential reference·token은 제외
+  - 자동 게시 Go/No-Go는 `NO_GO_PENDING_EXTERNAL_INPUTS`로 고정. 내부 준비는 완료했지만 외부 계정·App·vault 선택은 후순위이며 실제 게시·업로드·예약 capability는 모두 `false`
+  - 다음 별도 개발의 최대 범위는 Threads의 승인된 단일 텍스트 1건이며 자동 재시도·예약·미디어·교차 게시를 제외
+  - 정책 확인일이 30일을 넘기면 `needs_reverify`로 낮춤
 - 채널 원고 18종 생성
   - X 단일 게시물 3안 + 3개 구간 스레드
   - Threads 대화형 연속 게시 3개
@@ -31,10 +39,14 @@
   - YouTube Shorts 스크립트·샷리스트
   - Show HN 작성자 전용 사실 체크리스트(생성 제목·본문 없음)
 - 원고별 편집·작업본 복사·Markdown 저장, 18종 일괄 다운로드
-- `HOLD` 상태인 Reddit·Product Hunt 자동본·Peerlist·Indie Hackers·DEV·Show HN은 사람 보강 전 복사 차단
+- 콘텐츠 유효성, 실제 게시 운영 조건, 사람 승인을 분리해 세 조건을 모두 통과한 결과만 복사 허용
+- 승인자는 현재 게시 필드·언어·원문·사실 지문·작성자/운영 입력·자산 hash·계정 target을 credential-free **approval snapshot**으로 동결
+  - 수정하면 snapshot은 자동 무효화되고 재승인이 필요함
+  - 로컬 `publish intent`는 중복키만 기록하는 process-local 계약이며, 유효한 readiness가 있을 때만 `ready_for_dry_run`이 됨
+  - `POST /api/v1/dry-runs`는 loopback nonce 보호 아래 local receipt만 만들며 실제 플랫폼 connector·게시 요청을 만들지 않음
 - 실제 package dependencies와 GitHub Topics, 실행 요구사항과 현재 한계, 읽기 전용 공개 데모 경계를 분리
 - 마지막 작업을 브라우저 `localStorage`에 저장하고 이전 3종·12종 데이터를 구조화 문서로 마이그레이션
-- Grok·Codex는 이 머신에서 이미 `grok login` / `codex login`된 CLI 세션만 사용. API Key와 소셜 서비스 OAuth는 넣지 않음
+- Codex 원고 생성은 이미 로그인된 loopback `proxy-codex`를 우선 사용. 이 앱은 OAuth token·CLI home·직접 `login`을 소유하지 않으며, 전용 `viral` caller credential으로만 Proxy에 요청함
 - 자동 게시, 예약 게시, SNS API 쓰기 연동 없음
 - 외부 패키지, LLM API Key, GitHub token의 브라우저 저장 없음
 
@@ -45,7 +57,7 @@ TikTok은 Shorts의 세로 영상을 재사용하는 후보로 상태를 표시�
 계정 확보 전 단계의 1차 개발은 완료했습니다.
 
 - 서비스 19종의 수동 게시 방법·공식 자동화 가능 범위·계정 정보를 조사했습니다.
-- 18개 생성 원고를 공개 저장소 사실과 서비스 정책에 맞춰 교정했습니다.
+- 18개 채널의 게시 준비 자료를 공개 저장소 사실과 서비스 정책에 맞춰 교정했습니다.
 - `memory_node_graph` 전용 채널별 최종 교정 원고와 HOLD 기준을 작성했습니다.
 - 자동 게시·OAuth·예약은 계정과 Developer App 확보 후 2차 개발에서 채널 하나씩 진행합니다.
 
@@ -57,76 +69,109 @@ TikTok은 Shorts의 세로 영상을 재사용하는 후보로 상태를 표시�
 - [프로젝트 1차 종료 보고서](PROJECT_PHASE1_CLOSURE_20260817.md)
 - [영문 재구성 수직 MVP 개발 계획](dev-plan/implement_20260817_182435.md)
 - [Grok/Codex OAuth 완성 원고 계획](dev-plan/implement_20260818_210532.md)
+- [소셜 자동 게시 이전 준비 계획](dev-plan/implement_20260821_201014.md)
+- [소셜 자동 게시 Go/No-Go 체크리스트](reviews/automation/AUTOMATION_GO_LIVE_CHECKLIST.md)
+- [로그인된 Codex OAuth Proxy 연동 계획](dev-plan/codex_oauth_proxy_integration_20260821.md)
+- [R1 OAuth 격리·DLP 위협 모델](reviews/security/R1_OAUTH_ISOLATION_THREAT_MODEL_20260820.md)
+- [R4 OAuth 공격 smoke 실행 가이드](reviews/security/R4_OAUTH_ADVERSARIAL_SMOKE_RUNBOOK_20260821.md)
+- [R5 Codex OAuth Proxy 실제 1턴 결과](reviews/security/R5_CODEX_PROXY_LIVE_ONE_TURN_20260821.md)
 - [로컬 API OpenAPI 3.1](openapi/viral-api.v1.yaml)
+- [registry-generated 채널 field contract](openapi/generated/channel-publish-fields.v1.json)
 
 ## 요구사항
 
 - Node.js 22 이상
 - 공개 GitHub API 접근
-- 영어 완성 원고: 로컬에 `grok` 또는 `codex` CLI와 로그인된 세션
+- 영어 완성 원고: 로그인된 loopback `proxy-codex`, 이 프로젝트 전용 `viral` caller credential, Proxy가 허용한 `conversation.respond.v1` capability
 - 선택: 서버 환경의 `GITHUB_TOKEN` 또는 `GH_TOKEN` (브라우저에 넣지 않음)
+
+### 개발 검증 도구
+
+- `npm test`의 OpenAPI parser/schema 검증: Python 3, `PyYAML`, `jsonschema`
+- generated TypeScript consumer smoke: `tsc`가 있으면 실행하며, 없는 Node-only 환경에서는 해당 smoke만 skip
 
 ## 웹 GUI 실행
 
 ```bash
-npm run web
+npm run web:proxy
 ```
 
-브라우저에서 [http://127.0.0.1:4310](http://127.0.0.1:4310)을 엽니다. 기본 bind는 loopback만 열고 CORS는 없습니다.
+이미 로그인된 Codex Proxy를 사용할 때는 `npm run web:proxy`를 실행합니다. Proxy 없이 원고 편집·검증 UI만 열려면 `npm run web`을 사용합니다. 브라우저에서 [http://127.0.0.1:4310](http://127.0.0.1:4310)을 엽니다. 기본 bind는 loopback만 열고 CORS는 없습니다.
 
-로컬 `/api/v1` 계약은 [openapi/viral-api.v1.yaml](openapi/viral-api.v1.yaml)이 정본입니다. 웹 GUI가 같은 compose/review/validate/readiness 경로를 씁니다. `/api/generate`와 `/api/translate`는 호환 유지합니다. 외부 기기·LAN 공개는 TLS·pairing·device auth가 있는 후속 계획에서만 다룹니다.
+로컬 `/api/v1` 계약은 [openapi/viral-api.v1.yaml](openapi/viral-api.v1.yaml)이 정본인 **loopback contract beta**입니다. 웹 GUI가 같은 compose/review/validate/readiness 경로를 씁니다. 상태 변경 POST는 같은 origin과 실행마다 새로 발급되는 `X-Viral-Nonce`가 필요하며, `GET /providers/readiness`는 절대 OAuth probe를 실행하지 않습니다. `/api/generate`와 `/api/translate`는 호환 유지합니다. 외부 기기·LAN 공개와 mobile codegen은 TLS·pairing·device auth가 있는 후속 계획에서만 다룹니다.
 
 사용 순서:
 
 1. 공개 GitHub URL을 입력하고 `콘텐츠 생성`을 누릅니다.
 2. 빠른 확인은 `memory_node_graph 예제로 1턴 실행`을 누릅니다.
 3. 전체 채널 상태에서 초안과 운영 게이트를 구분합니다.
-4. 18개 탭의 게시 필드를 검토·수정한 뒤 복사하거나 Markdown으로 저장합니다.
-5. 영어가 필요하면 엔진을 고르고 `생성`을 누릅니다. `자동 추천`은 채널 기본값(짧은 소셜은 Grok, 긴 제품 글은 Codex)을 씁니다.
-6. Reddit·Indie Hackers·DEV·Product Hunt는 한국어 작성자 입력을 채운 뒤에만 생성합니다. Show HN은 생성·검토·번역 버튼을 숨깁니다.
-7. HOLD 채널은 `작성자 보강 완료` 전에는 복사되지 않습니다.
-8. GeekNews 첫 게시를 진행할 때만 `직접 게시 전 준비`의 기준점과 5개 체크 항목을 완료합니다.
-9. 첫 게시 후 최소 72시간, 권장 7일 동안 반응을 확인한 뒤 다음 채널을 결정합니다. 앱은 게시하지 않습니다.
+4. 게시자 역할·계정 성격·목표·대상 독자를 입력합니다. 역할 근거가 없으면 `I/we built` 같은 표현은 허용되지 않습니다.
+5. 게시 언어를 선택합니다. 한국어 원문에서 영어·일본어·중국어(간체)·스페인어 후보를 한 채널씩 구성할 수 있습니다. GeekNews·OKKY·Disquiet은 한국어·영어만 지원합니다.
+6. compose 채널은 Codex Proxy 상태가 `준비됨`일 때만 `Codex`를 고르고 `생성`을 누릅니다. 생성한 언어별 후보는 원문 변경 시 모두 오래됨 처리되며, Proxy caller credential 또는 권한이 없으면 원고 편집·검증만 허용합니다.
+7. Reddit·DEV는 참고 자료만 제공하며 최종 제목·본문은 작성자가 직접 작성합니다. Show HN은 생성·검토·번역 버튼을 숨깁니다.
+8. 콘텐츠 후보라도 계정·미디어·그룹 규칙 등 운영 조건을 확인하고, 승인자 이름/역할을 입력한 뒤 현재 결과를 immutable snapshot으로 승인해야 복사할 수 있습니다. 원고·언어·사실·입력·자산·계정 변경은 재승인이 필요합니다.
+9. Threads·X·LinkedIn은 실제 token이 아닌 외부 vault reference를 입력하고 `실제 게시 잠금`을 켠 경우에만 local dry-run을 실행할 수 있습니다. 결과의 safe evidence JSON으로 `외부 write 0회`를 확인합니다.
+10. GeekNews 첫 게시를 진행할 때만 `직접 게시 전 준비`의 기준점과 5개 체크 항목을 완료합니다.
+11. 첫 게시 후 최소 72시간, 권장 7일 동안 반응을 확인한 뒤 다음 채널을 결정합니다. 앱은 게시하지 않습니다.
 
-### 완성 상태
+Phase 4는 코드·합성 계정 E2E까지 구현됐습니다. 실제 Threads 계정/App Dashboard의 ID, redirect URI, 승인 scope, 정책 확인과 외부 credential vault는 계정 책임자가 입력해야 하므로 실제 계정 운영 리허설은 아직 완료로 표시하지 않습니다.
 
-| 상태 | 의미 | 복사 |
+Phase 5 내부 준비 패키지는 외부 입력을 후순위로 분리합니다. GUI와 `/api/v1/capabilities`는 `NO_GO_PENDING_EXTERNAL_INPUTS`, `actualPublishCapability: false`를 표시하며 후순위 운영 게이트와 별도 보안 검토 전에는 실제 자동 게시 개발을 시작하지 않습니다.
+
+### 게시 준비 상태
+
+단일 `ready` 상태를 쓰지 않습니다. 복사 가능한 실제 게시 준비 상태는 아래 세 축을 모두 통과한 경우입니다.
+
+| 축 | 값 | 의미 |
 |---|---|---|
-| 승인 후보 (`ready`) | 필수 입력과 자동 검증을 통과한 사람 확인 후보 | 사람 확인 후 가능 |
-| 검토 필요 (`needs_review`) | 생성은 됐으나 정책·HOLD·문체 확인이 남음 | 기본 차단 |
-| 입력 필요 (`needs_input`) | 서브레딧, 가격, 실제 경험 등 작성자 입력 없음 | 차단 |
-| 직접 작성 (`manual_only`) | Show HN처럼 AI 생성·윤문을 허용하지 않음 | 차단 |
-| 오래됨 (`stale`) | 원문을 고쳐서 기존 영어 결과가 무효 | 다시 생성 전 차단 |
+| 콘텐츠 | `candidate` | 게시 필드·사실·길이 검증을 통과한 후보 |
+| 콘텐츠 | `needs_input` / `invalid` | 작성자 정보 또는 게시 필드 보완 필요 |
+| 콘텐츠 | `reference_ready` | Reddit·DEV 참고 자료 준비 완료. 최종 글은 직접 작성 |
+| 콘텐츠 | `manual_only` | Show HN처럼 AI 생성·윤문 금지 |
+| 운영 | `ready` / `blocked` | 계정·미디어·카테고리·커뮤니티 규칙 확인 여부 |
+| 승인 | `approved` / `unreviewed` | 현재 결과를 사람이 승인했는지 여부 |
 
-`ready`는 자동 게시 완료가 아닙니다.
+`publishReady`는 `candidate + operations ready + approved`일 때만 true입니다. 원문 변경으로 결과가 `stale`이면 다시 생성·승인하기 전 복사할 수 없습니다.
 
-### Grok·Codex 로그인과 복구
+### 로그인된 Codex OAuth Proxy 연결
 
-API Key를 프로젝트에 넣지 않습니다. CLI 세션만 사용합니다.
+이 프로젝트에서 `codex login` 또는 `grok login`을 실행하지 않습니다. OAuth 로그인·CLI 실행·상위 queue는 이미 로그인된 `proxy-codex`가 소유합니다. 이 앱에는 OAuth token을 복사하지 않습니다.
 
 ```bash
-grok login
-codex login
+VIRAL_CODEX_PROXY_BASE_URL=http://127.0.0.1:4348
+VIRAL_CODEX_PROXY_CALLER_ID=viral
+VIRAL_CODEX_PROXY_SECRET_FILE=/absolute/path/to/viral-codex-proxy.secret
 ```
 
-- GUI의 엔진 상태가 `로그인 필요`이면 터미널에서 위 명령을 실행한 뒤 `생성`을 다시 누릅니다.
-- `미설치`이면 PATH에 `grok` 또는 `codex`가 있는지 확인하고, 필요하면 `GROK_BIN` / `CODEX_BIN`에 절대 경로를 지정합니다.
-- 만료·로그아웃 후에는 같은 머신에서 다시 `login`합니다. 토큰 파일은 읽거나 복사하지 않습니다.
+- Proxy URL은 `127.0.0.1`·`localhost`·`::1` loopback HTTP만 허용합니다.
+- credential 파일은 Git 제외 경로에 `0600` 권한으로 보관합니다. Proxy의 `viral` caller credential과만 일치해야 하며, 다른 서비스 credential을 재사용하지 않습니다.
+- `GET /api/v1/providers/readiness`는 Proxy 연결 상태만 읽고 OAuth 요청을 만들지 않습니다. 실제 인증·생성 확인은 사용자가 `생성`을 누른 1턴 compose에서만 합니다.
 - 생성이 길면 `중지`로 취소할 수 있습니다. 원문 한국어는 그대로 남습니다.
-- 요청은 한 번에 하나만 실행됩니다(queue 1).
+- 앱과 Proxy의 text 요청은 모두 queue 1로 순차 실행합니다.
+- Grok은 텍스트용 로그인 Proxy contract가 준비될 때까지 생성 대상으로 연결하지 않습니다.
 
-로그아웃은 각 CLI의 공식 명령(`grok logout`, `codex logout`)을 따릅니다. 이 앱이 세션을 지우지 않습니다.
+구체적인 Proxy 권한 설정과 1턴 smoke는 [로그인된 Codex OAuth Proxy 연동 계획](dev-plan/codex_oauth_proxy_integration_20260821.md)을 따릅니다.
 
 ### 로컬 API 예제
 
-웹과 같은 계약입니다. 기본 서버는 `127.0.0.1`만 열고 CORS는 없습니다.
+웹과 같은 계약입니다. 기본 서버는 `127.0.0.1`만 열고 CORS는 없습니다. `HOST=0.0.0.0` 같은 non-loopback bind는 시작 단계에서 거부됩니다.
 
 ```bash
 curl -sS http://127.0.0.1:4310/api/v1/capabilities
 curl -sS http://127.0.0.1:4310/api/v1/providers/readiness
 ```
 
-compose/review/validate 본문 예는 [openapi/viral-api.v1.yaml](openapi/viral-api.v1.yaml)을 봅니다. 다른 기기에서 이 포트를 열려면 TLS·pairing·device auth가 있는 후속 계획이 필요합니다. 이 MVP는 LAN 공개를 하지 않습니다.
+compose/review/validate는 capabilities 응답의 `nonce`를 `X-Viral-Nonce` 헤더에 넣어 같은 loopback origin에서 호출합니다. 재시도는 동일 `idempotencyKey`와 SHA-256 `requestFingerprint`를 유지해야 하며, 같은 key에 다른 입력을 넣으면 `409 IDEMPOTENCY_CONFLICT`가 반환됩니다. 이 캐시는 프로세스 메모리에서 최대 64건·10분만 유지되고 서버 재시작 때 비워집니다.
+
+채널별 `publishFields` 계약은 runtime registry에서 생성됩니다. 수정 후 아래 명령으로 생성물 일치 여부를 확인합니다.
+
+```bash
+npm run api:contract:check
+```
+
+`POST /api/v1/providers/probe`는 사용자 명시 상태 점검이며 60초 cooldown이 있습니다. Proxy OAuth session에 비용이 드는 숨은 요청을 만들지 않으며, 실제 생성 검증은 1턴 compose로만 합니다. compose/review/validate 본문 예는 [openapi/viral-api.v1.yaml](openapi/viral-api.v1.yaml)을 봅니다. 다른 기기에서 이 포트를 열려면 TLS·pairing·device auth가 있는 후속 계획이 필요합니다. 이 MVP는 LAN 공개를 하지 않습니다.
+
+`POST /api/v1/approval-revisions`는 현재 원고를 immutable approval snapshot으로만 반환합니다. `POST /api/v1/publish-intents`는 그 snapshot의 `platform + account + target + content hash + asset hash` 중복키를 process-local 메모리에 기록할 뿐, 소셜 플랫폼에는 어떤 HTTP 요청도 만들지 않습니다. token·secret·password·개인 경로 패턴은 snapshot 전에 거부합니다.
 
 ### 채널별 주의사항
 

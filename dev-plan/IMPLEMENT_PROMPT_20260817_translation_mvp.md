@@ -1,6 +1,6 @@
 # 구현 프롬프트 — ko-KR → en-US 번역 수직 MVP
 
-**사용 금지.** 이 문서는 `XAI_API_KEY` 직접 호출을 전제로 한다. 현재 정본은 [`implement_20260817_182435.md`](./implement_20260817_182435.md)의 Grok OAuth Proxy 경로다. 구현은 그 파일만 따른다.
+**사용 금지 / 보관 문서.** 이 문서는 `XAI_API_KEY` 직접 호출을 전제로 하므로 현재 구현에 사용하지 않는다. 현재 콘텐츠 구성·OAuth 정본은 [`implement_20260818_210532.md`](./implement_20260818_210532.md)와 [`codex_oauth_proxy_integration_20260821.md`](./codex_oauth_proxy_integration_20260821.md)다.
 
 ---
 

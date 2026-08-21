@@ -1,0 +1,622 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "channel-publish-fields.v1.json",
+  "title": "Viral channel publish fields",
+  "description": "Generated from src/drafts.mjs CHANNEL_REGISTRY. Do not edit manually.",
+  "$defs": {
+    "x1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body"
+      ],
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "x2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body"
+      ],
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "x3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body"
+      ],
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "xThread": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segments"
+      ],
+      "properties": {
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "threads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "posts"
+      ],
+      "properties": {
+        "posts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "reddit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ],
+      "properties": {
+        "facts": {
+          "type": "object"
+        }
+      }
+    },
+    "linkedin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "body"
+      ],
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "disquiet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productName",
+        "tagline",
+        "productLink",
+        "postBody"
+      ],
+      "properties": {
+        "productName": {
+          "type": "string"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "productLink": {
+          "type": "string"
+        },
+        "postBody": {
+          "type": "string"
+        }
+      }
+    },
+    "facebook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reelsCaption",
+        "groupBody"
+      ],
+      "properties": {
+        "reelsCaption": {
+          "type": "string"
+        },
+        "groupBody": {
+          "type": "string"
+        }
+      }
+    },
+    "instagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cover",
+        "caption"
+      ],
+      "properties": {
+        "cover": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        }
+      }
+    },
+    "productHunt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "tagline",
+        "description",
+        "firstComment"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "firstComment": {
+          "type": "string"
+        }
+      }
+    },
+    "peerlist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "tagline",
+        "comment"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      }
+    },
+    "indieHackers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "okky": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "geeknews": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      }
+    },
+    "dev": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ],
+      "properties": {
+        "facts": {
+          "type": "object"
+        }
+      }
+    },
+    "shorts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "description",
+        "shots"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "showHn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {}
+    }
+  },
+  "ComposeRequestChannel": {
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "x1"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/x1"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "x2"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/x2"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "x3"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/x3"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "xThread"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/xThread"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "threads"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/threads"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "reddit"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/reddit"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "linkedin"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/linkedin"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "disquiet"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/disquiet"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "facebook"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/facebook"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "instagram"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/instagram"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "productHunt"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/productHunt"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "peerlist"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/peerlist"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "indieHackers"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/indieHackers"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "okky"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/okky"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "geeknews"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/geeknews"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "dev"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/dev"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "shorts"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/shorts"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": [
+          "channel",
+          "publishFields"
+        ],
+        "properties": {
+          "channel": {
+            "const": "showHn"
+          },
+          "publishFields": {
+            "$ref": "#/$defs/showHn"
+          }
+        }
+      }
+    ]
+  },
+  "PublishFieldsByChannel": {
+    "oneOf": [
+      {
+        "$ref": "#/$defs/x1"
+      },
+      {
+        "$ref": "#/$defs/x2"
+      },
+      {
+        "$ref": "#/$defs/x3"
+      },
+      {
+        "$ref": "#/$defs/xThread"
+      },
+      {
+        "$ref": "#/$defs/threads"
+      },
+      {
+        "$ref": "#/$defs/reddit"
+      },
+      {
+        "$ref": "#/$defs/linkedin"
+      },
+      {
+        "$ref": "#/$defs/disquiet"
+      },
+      {
+        "$ref": "#/$defs/facebook"
+      },
+      {
+        "$ref": "#/$defs/instagram"
+      },
+      {
+        "$ref": "#/$defs/productHunt"
+      },
+      {
+        "$ref": "#/$defs/peerlist"
+      },
+      {
+        "$ref": "#/$defs/indieHackers"
+      },
+      {
+        "$ref": "#/$defs/okky"
+      },
+      {
+        "$ref": "#/$defs/geeknews"
+      },
+      {
+        "$ref": "#/$defs/dev"
+      },
+      {
+        "$ref": "#/$defs/shorts"
+      },
+      {
+        "$ref": "#/$defs/showHn"
+      }
+    ]
+  }
+}

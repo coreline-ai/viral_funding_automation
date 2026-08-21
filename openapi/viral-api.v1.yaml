@@ -29,12 +29,6 @@ paths:
       tags: [v1]
       summary: CLI install and login status without token or binary paths
       operationId: getReadiness
-      parameters:
-        - name: probe
-          in: query
-          schema:
-            type: string
-            enum: ["1"]
       responses:
         "200":
           description: Provider readiness
@@ -42,11 +36,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Readiness"
+  /api/v1/providers/probe:
+    post:
+      tags: [v1]
+      summary: Explicit OAuth authentication probe (rate limited; may consume provider quota)
+      operationId: probeProviders
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Explicitly probed provider readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+        "429":
+          description: Probe cooldown; Retry-After is returned
+          headers:
+            Retry-After:
+              schema: { type: string }
   /api/v1/drafts/compose:
     post:
       tags: [v1]
       summary: Compose English publish fields
       operationId: composeDraft
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: true
         content:
@@ -62,6 +86,7 @@ paths:
               sourceLocale: ko-KR
               targetLocale: en-US
               sourceHash: c0ffee00
+              requestFingerprint: 99d4e0f9d9dc5bf65573b5016544a89ee219164178d8e2771245429be7bb9a9b
               facts:
                 name: AI Systems Atlas
                 repositoryUrl: https://github.com/coreline-ai/memory_node_graph
@@ -129,6 +154,9 @@ paths:
       tags: [v1]
       summary: Non-publishing review issues
       operationId: reviewDraft
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: true
         content:
@@ -147,6 +175,9 @@ paths:
       tags: [v1]
       summary: Revalidate publish fields without a provider
       operationId: validateDraft
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: true
         content:
@@ -160,7 +191,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidateResponse"
+  /api/v1/approval-revisions:
+    post:
+      tags: [v1]
+      summary: Freeze one human-approved, credential-free publish snapshot
+      operationId: createApprovalRevision
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalRevisionRequest"
+      responses:
+        "200":
+          description: Immutable approval snapshot; no publish call is made
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRevisionResponse"
+        "400":
+          description: Invalid, incomplete, manual-only, or sensitive snapshot input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/publish-intents:
+    post:
+      tags: [v1]
+      summary: Record a non-publishing, process-local publish intent
+      operationId: createPublishIntent
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishIntentRequest"
+      responses:
+        "200":
+          description: Intent state only; no social platform request is made
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishIntentResponse"
+        "409":
+          description: Duplicate intent for the same platform/account/target/content/asset key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/dry-runs:
+    post:
+      tags: [v1]
+      summary: Build a local-only Threads, X, or LinkedIn dry-run payload and receipt
+      description: >
+        Validates an approved snapshot against a credential-free readiness
+        attestation. This route never resolves a token and never calls a social
+        platform, upload, schedule, or publish endpoint.
+      operationId: createDryRun
+      parameters:
+        - $ref: "#/components/parameters/LoopbackNonce"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DryRunRequest"
+      responses:
+        "200":
+          description: Local payload plan and simulated receipt; networkWriteCount is always zero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DryRunResponse"
+        "400":
+          description: Unsupported connector, malformed readiness, or sensitive input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Stale account/asset/approval, expired policy, non-ready, or duplicate intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
+  parameters:
+    LoopbackNonce:
+      name: X-Viral-Nonce
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: Per-launch nonce returned only by loopback GET /api/v1/capabilities.
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        type: string
   schemas:
     Channel:
       type: string
@@ -169,13 +306,13 @@ components:
     Provider:
       type: string
       enum: [auto, grok, codex]
-    CompletionStatus:
+    ContentStatus:
       type: string
-      enum: [ready, needs_review, needs_input, manual_only]
+      enum: [candidate, content_ready, needs_input, reference_ready, manual_only, stale]
     ErrorCode:
       type: string
       enum:
-        [SOURCE_STALE, QUEUE_FULL, QUEUE_UNAVAILABLE, REQUEST_CANCELLED, PROVIDER_TIMEOUT, PROVIDER_RATE_LIMIT, LOGIN_REQUIRED, TRANSLATION_DISABLED, INVALID_PROVIDER, INVALID_CHANNEL, INVALID_REQUEST, UNKNOWN_FIELD, UNSUPPORTED_CONTENT_TYPE, REQUEST_TOO_LARGE, GROK_INVALID_OUTPUT]
+        [SOURCE_STALE, REQUEST_FINGERPRINT_MISMATCH, IDEMPOTENCY_CONFLICT, QUEUE_FULL, QUEUE_UNAVAILABLE, REQUEST_CANCELLED, PROVIDER_TIMEOUT, PROVIDER_RATE_LIMIT, LOGIN_REQUIRED, TRANSLATION_DISABLED, INVALID_PROVIDER, INVALID_CHANNEL, INVALID_REQUEST, INVALID_JSON, INVALID_FIELDS, INVALID_AUTHOR_INPUT, INVALID_OPERATION_INPUT, UNKNOWN_FIELD, UNSUPPORTED_CONTENT_TYPE, REQUEST_TOO_LARGE, GROK_INVALID_OUTPUT, SENSITIVE_PROVIDER_OUTPUT, PROVIDER_SECURITY_DISABLED, CODEX_PROXY_CONFIG_INVALID, CODEX_PROXY_UNAUTHORIZED, CODEX_PROXY_UNAVAILABLE, CODEX_PROXY_INVALID_OUTPUT, INVALID_ORIGIN, INVALID_HOST, INVALID_NONCE, PROBE_RATE_LIMITED, INVALID_APPROVAL_INPUT, APPROVAL_NOT_READY, LOCALE_REVIEW_REQUIRED, INVALID_ASSET_HASH, INVALID_ACCOUNT_TARGET, INVALID_APPROVAL_REVISION, INVALID_PUBLISH_INTENT, MANUAL_ONLY_PLATFORM, SENSITIVE_APPROVAL_INPUT, UNSUPPORTED_LOCALE, DUPLICATE_PUBLISH_INTENT, DRY_RUN_UNSUPPORTED_CHANNEL, CONNECTOR_PLATFORM_MISMATCH, PUBLISH_INTENT_NOT_READY, STALE_APPROVAL, STALE_ACCOUNT, STALE_ASSET, POLICY_REVERIFY_REQUIRED, SENSITIVE_READINESS_INPUT, THREADS_TEXT_REQUIRED, X_TEXT_REQUIRED, LINKEDIN_TEXT_REQUIRED, LINKEDIN_ACCOUNT_TYPE, INVALID_DRY_RUN_TIME, INVALID_CREDENTIAL_HANDLE, CREDENTIAL_HANDLE_REQUIRED, SENSITIVE_CREDENTIAL_HANDLE, INVALID_DRY_RUN_SAFETY, DRY_RUN_KILL_SWITCH_REQUIRED, UNSAFE_DRY_RUN_RECEIPT, SENSITIVE_DRY_RUN_EVIDENCE]
     ErrorEnvelope:
       type: object
       additionalProperties: false
@@ -189,12 +326,14 @@ components:
         error:
           type: object
           additionalProperties: false
-          required: [code, message]
+          required: [code, message, retryable]
           properties:
             code:
               $ref: "#/components/schemas/ErrorCode"
             message:
               type: string
+            retryable:
+              type: boolean
     FieldIssue:
       type: object
       required: [code, message]
@@ -209,7 +348,7 @@ components:
           type: string
     Capabilities:
       type: object
-      required: [schemaVersion, requestId, providers, channels, cors, bind]
+      required: [schemaVersion, requestId, providers, channels, cors, bind, socialAutomation]
       properties:
         schemaVersion:
           type: string
@@ -227,20 +366,74 @@ components:
         statuses:
           type: array
           items:
-            $ref: "#/components/schemas/CompletionStatus"
+            $ref: "#/components/schemas/ContentStatus"
         cors:
           type: string
           const: disabled
         bind:
           type: object
-          required: [host, loopbackOnly]
+          required: [host, defaultPort, loopbackOnly]
           properties:
             host:
               type: string
-              const: 127.0.0.1
+              enum: [127.0.0.1, localhost, "::1"]
+            defaultPort:
+              type: integer
             loopbackOnly:
               type: boolean
               const: true
+        nonce:
+          type: string
+          minLength: 1
+        idempotency:
+          type: object
+          required: [scope, ttlMs, restartBehavior]
+          properties:
+            scope: { type: string, const: process_local }
+            ttlMs: { type: integer }
+            restartBehavior: { type: string, const: cleared_on_process_restart }
+        publishIntents:
+          type: object
+          required: [scope, actualNetworkWrite, restartBehavior]
+          properties:
+            scope: { type: string, const: process_local }
+            actualNetworkWrite: { type: boolean, const: false }
+            restartBehavior: { type: string, const: cleared_on_process_restart }
+        dryRunConnectors:
+          type: object
+          required: [scope, platforms, actualNetworkWrite, credentialResolution, userKillSwitch]
+          properties:
+            scope: { type: string, const: loopback_local_only }
+            platforms:
+              type: array
+              items: { type: string, enum: [threads, x, linkedin] }
+            actualNetworkWrite: { type: boolean, const: false }
+            credentialResolution: { type: string, const: not_configured }
+            userKillSwitch: { type: string, const: live_write_locked }
+        socialAutomation:
+          type: object
+          required: [phase, decision, internalPreparationStatus, externalInputsStatus, actualPublishCapability, actualUploadCapability, actualScheduleCapability, credentialVaultStrategy, nextScope]
+          properties:
+            phase: { type: string, const: pre_publish_preflight }
+            decision: { type: string, const: NO_GO_PENDING_EXTERNAL_INPUTS }
+            internalPreparationStatus: { type: string, const: complete }
+            externalInputsStatus: { type: string, const: deferred }
+            actualPublishCapability: { type: boolean, const: false }
+            actualUploadCapability: { type: boolean, const: false }
+            actualScheduleCapability: { type: boolean, const: false }
+            credentialVaultStrategy: { type: string, const: not_selected }
+            nextScope:
+              type: object
+              required: [platform, channel, format, maxPostsPerApproval, automaticRetry, scheduling, mediaUpload, crossPosting]
+              properties:
+                platform: { type: string, const: threads }
+                channel: { type: string, const: threads }
+                format: { type: string, const: single_text }
+                maxPostsPerApproval: { type: integer, const: 1 }
+                automaticRetry: { type: boolean, const: false }
+                scheduling: { type: boolean, const: false }
+                mediaUpload: { type: boolean, const: false }
+                crossPosting: { type: boolean, const: false }
         followUp:
           type: object
           properties:
@@ -278,10 +471,20 @@ components:
           type: boolean
         version:
           type: string
+        securityStatus:
+          type: string
+          enum: [restricted, experimental, disabled]
+        reason:
+          type: string
+          enum: [security_unverified]
     ComposeRequest:
+      allOf:
+        - $ref: "#/components/schemas/ComposeRequestBase"
+        - $ref: "./generated/channel-publish-fields.v1.json#/ComposeRequestChannel"
+    ComposeRequestBase:
       type: object
       additionalProperties: false
-      required: [channel, sourceLocale, targetLocale]
+      required: [schemaVersion, requestId, idempotencyKey, requestFingerprint, channel, provider, sourceLocale, targetLocale, facts, publishFields]
       properties:
         schemaVersion:
           type: string
@@ -299,9 +502,12 @@ components:
           const: ko-KR
         targetLocale:
           type: string
-          const: en-US
+          enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES]
         sourceHash:
           type: string
+        requestFingerprint:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
         facts:
           type: object
         sourceDraft:
@@ -310,11 +516,17 @@ components:
           type: object
         authorInputs:
           type: object
+        operationInputs:
+          type: object
+        campaignBrief:
+          type: object
+        approvalStatus:
+          type: string
         siblings:
           type: object
     ComposeResponse:
       type: object
-      required: [schemaVersion, channel, status]
+      required: [schemaVersion, requestId, compositionId, requestFingerprint, channel, supportMode, contentStatus, operationsStatus, approvalStatus, publishReady, sourceHash, publishFields, validation, evidence, missingInputs, missingOperations, warnings, composedAt]
       properties:
         schemaVersion:
           type: string
@@ -325,8 +537,24 @@ components:
           $ref: "#/components/schemas/Channel"
         provider:
           type: string
-        status:
-          $ref: "#/components/schemas/CompletionStatus"
+        compositionId:
+          type: string
+        requestFingerprint:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        supportMode:
+          type: string
+          enum: [compose, reference_only, manual_only]
+        contentStatus:
+          $ref: "#/components/schemas/ContentStatus"
+        operationsStatus:
+          type: string
+          enum: [ready, blocked]
+        approvalStatus:
+          type: string
+          enum: [unreviewed, approved]
+        publishReady:
+          type: boolean
         sourceHash:
           type: string
         publishFields:
@@ -348,6 +576,320 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FieldIssue"
+        summary:
+          type: [object, 'null']
+        evidence:
+          type: array
+          items: { type: object }
+        missingOperations:
+          type: array
+          items: { type: string }
+        composedAt:
+          type: string
+    AccountTarget:
+      type: object
+      additionalProperties: false
+      required: [platform, accountId, targetId, targetType]
+      properties:
+        platform: { type: string }
+        accountId: { type: string }
+        targetId: { type: string }
+        targetType: { type: string }
+        handle: { type: string }
+    ApprovalRevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, channel, targetLocale, publishFields, sourcePublishFields, facts, authorInputs, operationInputs, campaignBrief, approvedBy, localeReviewed]
+      properties:
+        schemaVersion: { type: string, const: viral-approval-revision-request/v1 }
+        requestId: { type: string }
+        channel: { $ref: "#/components/schemas/Channel" }
+        targetLocale: { type: string, enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES] }
+        publishFields: { type: object }
+        sourcePublishFields: { type: object }
+        facts: { type: object }
+        authorInputs: { type: object }
+        operationInputs: { type: object }
+        campaignBrief: { type: object }
+        assetHash:
+          type: [string, "null"]
+          pattern: '^[a-f0-9]{64}$'
+        accountTarget:
+          oneOf:
+            - $ref: "#/components/schemas/AccountTarget"
+            - type: "null"
+        approvedBy: { type: string, minLength: 2 }
+        localeReviewed: { type: boolean, const: true }
+    ApprovalRevision:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, revisionId, status, fingerprint, channel, platform, targetLocale, localeReviewed, publishFields, copyText, contentHash, sourceFingerprint, factsFingerprint, authorInputs, operationInputs, campaignBrief, assetHash, accountTarget, approvedBy, approvedAt, policyStatusAtApproval]
+      properties:
+        schemaVersion: { type: string, const: viral-approval-revision/v1 }
+        revisionId: { type: string }
+        status: { type: string, const: approved }
+        fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        channel: { $ref: "#/components/schemas/Channel" }
+        platform: { type: string }
+        targetLocale: { type: string, enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES] }
+        localeReviewed: { type: boolean, const: true }
+        publishFields: { type: object }
+        copyText: { type: string }
+        contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        sourceFingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        factsFingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        authorInputs: { type: object }
+        operationInputs: { type: object }
+        campaignBrief: { type: object }
+        assetHash:
+          type: [string, "null"]
+          pattern: '^[a-f0-9]{64}$'
+        accountTarget:
+          oneOf:
+            - $ref: "#/components/schemas/AccountTarget"
+            - type: "null"
+        approvedBy: { type: string }
+        approvedAt: { type: string, format: date-time }
+        policyStatusAtApproval: { type: string }
+    ApprovalRevisionResponse:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, approvalRevision]
+      properties:
+        schemaVersion: { type: string, const: viral-approval-revision-response/v1 }
+        requestId: { type: string }
+        approvalRevision: { $ref: "#/components/schemas/ApprovalRevision" }
+    PublishIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, approvalRevision]
+      properties:
+        schemaVersion: { type: string, const: viral-publish-intent-request/v1 }
+        requestId: { type: string }
+        approvalRevision: { $ref: "#/components/schemas/ApprovalRevision" }
+    PublishIntent:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, intentId, status, fingerprint, duplicateKey, approvalRevisionId, approvalFingerprint, platform, channel, targetLocale, accountTarget, assetHash, contentHash, blockedReasons, createdAt]
+      properties:
+        schemaVersion: { type: string, const: viral-publish-intent/v1 }
+        intentId: { type: string }
+        status: { type: string, enum: [draft, ready_for_dry_run, blocked, expired] }
+        fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        duplicateKey: { type: string, pattern: '^[a-f0-9]{64}$' }
+        approvalRevisionId: { type: string }
+        approvalFingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        platform: { type: string }
+        channel: { $ref: "#/components/schemas/Channel" }
+        targetLocale: { type: string, enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES] }
+        accountTarget:
+          oneOf:
+            - $ref: "#/components/schemas/AccountTarget"
+            - type: "null"
+        assetHash:
+          type: [string, "null"]
+          pattern: '^[a-f0-9]{64}$'
+        contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        blockedReasons:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    PublishIntentResponse:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, publishIntent]
+      properties:
+        schemaVersion: { type: string, const: viral-publish-intent-response/v1 }
+        requestId: { type: string }
+        publishIntent: { $ref: "#/components/schemas/PublishIntent" }
+    PlatformReadinessInput:
+      type: object
+      additionalProperties: false
+      required: [platform, account, developerApp, policy, asset]
+      properties:
+        schemaVersion: { type: string, const: viral-platform-readiness/v1 }
+        platform: { type: string }
+        account:
+          type: object
+          additionalProperties: false
+          required: [accountType, profileId, targetId, targetType, handle, profileUrl, owner, timezone, targetLocale]
+          properties:
+            accountType: { type: string }
+            profileId: { type: string }
+            targetId: { type: string }
+            targetType: { type: string }
+            handle: { type: string }
+            profileUrl: { type: string }
+            owner: { type: string }
+            timezone: { type: string }
+            targetLocale: { type: string, enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES] }
+        developerApp:
+          type: object
+          additionalProperties: false
+          required: [configured, appId, approvedScopes, redirectUri, credentialVaultConfirmed]
+          properties:
+            configured: { type: boolean }
+            appId: { type: string }
+            approvedScopes:
+              type: array
+              items: { type: string }
+            redirectUri: { type: string }
+            credentialVaultConfirmed: { type: boolean }
+            credentialVaultStatus: { type: string, const: external_vault_required }
+        policy:
+          type: object
+          additionalProperties: false
+          required: [url, verifiedAt]
+          properties:
+            url: { type: string }
+            verifiedAt: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        asset:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [hash, fileName, mimeType, sizeBytes, width, height, altText, rightsConfirmed, publicUrl]
+              properties:
+                hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+                fileName: { type: string }
+                mimeType: { type: string }
+                sizeBytes: { type: integer, minimum: 1 }
+                width: { type: integer, minimum: 1 }
+                height: { type: integer, minimum: 1 }
+                altText: { type: string }
+                rightsConfirmed: { type: boolean }
+                publicUrl: { type: string }
+    DryRunRequest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, approvalRevision, readiness, credentialHandle, safety]
+      properties:
+        schemaVersion: { type: string, const: viral-dry-run-request/v1 }
+        requestId: { type: string }
+        approvalRevision: { $ref: "#/components/schemas/ApprovalRevision" }
+        readiness: { $ref: "#/components/schemas/PlatformReadinessInput" }
+        operationInputs: { type: object }
+        credentialHandle:
+          type: string
+          pattern: '^[A-Za-z0-9._:-]{8,160}$'
+          description: Opaque external-vault handle only; it is never resolved in this phase.
+        safety: { $ref: "#/components/schemas/DryRunSafety" }
+    DryRunSafety:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, execution, userKillSwitch, liveWriteLocked]
+      properties:
+        schemaVersion: { type: string, const: viral-dry-run-safety/v1 }
+        execution: { type: string, const: dry_run }
+        userKillSwitch: { type: string, const: live_write_locked }
+        liveWriteLocked: { type: boolean, const: true }
+    DryRunPayloadPlan:
+      type: object
+      additionalProperties: false
+      required: [endpointClass, payloads]
+      properties:
+        endpointClass: { type: string, enum: [threads_text_post, x_text_post, linkedin_text_post] }
+        requiredVersionHeaders:
+          type: array
+          items: { type: string }
+        payloads:
+          type: array
+          minItems: 1
+          items: { type: object }
+    DryRunCredentialState:
+      type: object
+      additionalProperties: false
+      required: [status, handleProvided, liveWriteBlocked]
+      properties:
+        status: { type: string, const: not_configured }
+        handleProvided: { type: boolean }
+        liveWriteBlocked: { type: boolean, const: true }
+    DryRunReceipt:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, receiptId, execution, result, platform, channel, account, approvalRevisionId, publishIntentId, contentHash, assetHash, endpointClass, requestCount, requestedAt, networkWriteCount, credential, safety, liveWriteBlocked]
+      properties:
+        schemaVersion: { type: string, const: viral-dry-run-receipt/v1 }
+        receiptId: { type: string }
+        execution: { type: string, const: dry_run }
+        result: { type: string, const: simulated }
+        platform: { type: string }
+        channel: { $ref: "#/components/schemas/Channel" }
+        account:
+          type: object
+          additionalProperties: false
+          required: [accountId, targetType]
+          properties:
+            handle: { type: string }
+            accountId: { type: string }
+            targetType: { type: string }
+        approvalRevisionId: { type: string }
+        publishIntentId: { type: string }
+        contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        assetHash:
+          type: [string, "null"]
+          pattern: '^[a-f0-9]{64}$'
+        endpointClass: { type: string }
+        requestCount: { type: integer, minimum: 1 }
+        requestedAt: { type: string, format: date-time }
+        networkWriteCount: { type: integer, const: 0 }
+        credential: { $ref: "#/components/schemas/DryRunCredentialState" }
+        safety: { $ref: "#/components/schemas/DryRunSafety" }
+        liveWriteBlocked: { type: boolean, const: true }
+    DryRunEvidenceManifest:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, receiptId, generatedAt, platform, channel, account, approvalRevisionId, publishIntentId, contentHash, assetHash, endpointClass, requestCount, networkWriteCount, credentialStatus, credentialHandlePresent, liveWriteLocked, assertions, manifestHash]
+      properties:
+        schemaVersion: { type: string, const: viral-dry-run-evidence/v1 }
+        receiptId: { type: string }
+        generatedAt: { type: string, format: date-time }
+        platform: { type: string }
+        channel: { $ref: "#/components/schemas/Channel" }
+        account:
+          type: object
+          additionalProperties: false
+          required: [accountId, targetType]
+          properties:
+            handle: { type: string }
+            accountId: { type: string }
+            targetType: { type: string }
+        approvalRevisionId: { type: string }
+        publishIntentId: { type: string }
+        contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        assetHash:
+          type: [string, "null"]
+          pattern: '^[a-f0-9]{64}$'
+        endpointClass: { type: string }
+        requestCount: { type: integer, minimum: 1 }
+        networkWriteCount: { type: integer, const: 0 }
+        credentialStatus: { type: string, const: not_configured }
+        credentialHandlePresent: { type: boolean, const: true }
+        liveWriteLocked: { type: boolean, const: true }
+        assertions:
+          type: array
+          items: { type: string }
+        manifestHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+    DryRunResult:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, connector, mode, payload, receipt]
+      properties:
+        schemaVersion: { type: string, const: viral-connector-dry-run/v1 }
+        connector: { type: string }
+        mode: { type: string, const: dry_run }
+        payload: { $ref: "#/components/schemas/DryRunPayloadPlan" }
+        receipt: { $ref: "#/components/schemas/DryRunReceipt" }
+    DryRunResponse:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, requestId, publishIntent, dryRun, evidenceManifest]
+      properties:
+        schemaVersion: { type: string, const: viral-dry-run-response/v1 }
+        requestId: { type: string }
+        publishIntent: { $ref: "#/components/schemas/PublishIntent" }
+        dryRun: { $ref: "#/components/schemas/DryRunResult" }
+        evidenceManifest: { $ref: "#/components/schemas/DryRunEvidenceManifest" }
     ReviewRequest:
       type: object
       additionalProperties: false
@@ -363,8 +905,10 @@ components:
           $ref: "#/components/schemas/Provider"
         sourceLocale:
           type: string
+          const: ko-KR
         targetLocale:
           type: string
+          enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES]
         publishFields:
           type: object
         sourceDraft:
@@ -404,10 +948,16 @@ components:
           $ref: "#/components/schemas/Channel"
         sourceLocale:
           type: string
+          const: ko-KR
         targetLocale:
           type: string
+          enum: [ko-KR, en-US, ja-JP, zh-CN, es-ES]
         sourceHash:
           type: string
+        requestFingerprint:
+          type: string
+        provider:
+          $ref: "#/components/schemas/Provider"
         facts:
           type: object
         sourceDraft:
@@ -420,7 +970,7 @@ components:
           type: object
     ValidateResponse:
       type: object
-      required: [channel, status, validation]
+      required: [schemaVersion, requestId, channel, contentStatus, operationsStatus, approvalStatus, publishReady, sourceHash, requestFingerprint, validation, missingInputs, missingOperations, warnings]
       properties:
         schemaVersion:
           type: string
@@ -428,11 +978,25 @@ components:
           type: string
         channel:
           $ref: "#/components/schemas/Channel"
-        status:
-          $ref: "#/components/schemas/CompletionStatus"
+        contentStatus:
+          $ref: "#/components/schemas/ContentStatus"
+        operationsStatus:
+          type: string
+        approvalStatus:
+          type: string
+        publishReady:
+          type: boolean
+        sourceHash:
+          type: string
+        requestFingerprint:
+          type: string
         validation:
           type: object
         missingInputs:
+          type: array
+          items:
+            type: string
+        missingOperations:
           type: array
           items:
             type: string

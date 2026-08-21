@@ -58,7 +58,7 @@ async function withServer(options, callback) {
     writeFile(join(webRoot, "styles.css"), ":root{color-scheme:dark}"),
     writeFile(join(webRoot, "app.js"), "export {};"),
   ]);
-  const server = createAppServer({ webRoot, ...options });
+  const server = createAppServer({ webRoot, requestGuards: false, ...options });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
@@ -83,6 +83,30 @@ test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다",
 
     assert.equal((await fetch(`${origin}/styles.css`)).status, 200);
     assert.equal((await fetch(`${origin}/app.js`)).status, 200);
+    assert.equal((await fetch(`${origin}/channel-state.mjs`)).status, 200);
+    const platformRegistry = await fetch(`${origin}/platform-registry.mjs`);
+    assert.equal(platformRegistry.status, 200);
+    assert.match(platformRegistry.headers.get("content-type"), /^text\/javascript/);
+    assert.match(await platformRegistry.text(), /PLATFORM_REGISTRY/);
+    const publishIntent = await fetch(`${origin}/publish-intent.mjs`);
+    assert.equal(publishIntent.status, 200);
+    assert.match(await publishIntent.text(), /createApprovalRevision/);
+    assert.equal((await fetch(`${origin}/runtime-security.mjs`)).status, 200);
+    const platformReadiness = await fetch(`${origin}/platform-readiness.mjs`);
+    assert.equal(platformReadiness.status, 200);
+    assert.match(platformReadiness.headers.get("content-type"), /^text\/javascript/);
+    assert.match(await platformReadiness.text(), /assessPlatformReadiness/);
+    const connectorRegistry = await fetch(`${origin}/platforms/registry.mjs`);
+    assert.equal(connectorRegistry.status, 200);
+    assert.match(connectorRegistry.headers.get("content-type"), /^text\/javascript/);
+    assert.match(await connectorRegistry.text(), /buildConnectorDryRun/);
+    assert.equal((await fetch(`${origin}/platforms/connector.mjs`)).status, 200);
+    assert.equal((await fetch(`${origin}/platforms/threads.mjs`)).status, 200);
+    assert.equal((await fetch(`${origin}/dry-run-rehearsal.mjs`)).status, 200);
+    const goLive = await fetch(`${origin}/automation-go-live.mjs`);
+    assert.equal(goLive.status, 200);
+    assert.match(await goLive.text(), /NO_GO_PENDING_EXTERNAL_INPUTS/);
+    assert.equal((await fetch(`${origin}/workspace-migration.mjs`)).status, 200);
     const xText = await fetch(`${origin}/x-text.mjs`);
     assert.equal(xText.status, 200);
     assert.match(xText.headers.get("content-type"), /^text\/javascript/);
@@ -332,7 +356,7 @@ test("번역 API는 Show HN을 Grok 실행 전에 거부한다", async () => {
   assert.equal(called, 0);
 });
 
-test("validate API는 provider 없이 작성자 입력 누락을 반환한다", async () => {
+test("validate API는 provider 없이 reference-only 상태를 반환한다", async () => {
   let called = 0;
   await withServer({
     grokRunner: new FakeGrokTextRunner(async () => {
@@ -351,7 +375,9 @@ test("validate API는 provider 없이 작성자 입력 누락을 반환한다", 
     });
     assert.equal(response.status, 200);
     const payload = await response.json();
-    assert.equal(payload.status, "needs_input");
+    assert.equal(payload.supportMode, "reference_only");
+    assert.equal(payload.contentStatus, "reference_ready");
+    assert.equal(payload.publishReady, false);
     assert.ok(payload.missingInputs.includes("subreddit"));
   });
   assert.equal(called, 0);

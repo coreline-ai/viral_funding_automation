@@ -31,15 +31,18 @@ test("readiness 상태와 fake provider compose/review 계약이 같다", async 
   assert.deepEqual(parseCodexStdout(`${JSON.stringify({ type: "event" })}\n${JSON.stringify({ text: JSON.stringify({ pong: "ok" }) })}`), { pong: "ok" });
 });
 
-test("실제 grok·codex --version이 있으면 readiness installed로 분류한다", async () => {
+test("실제 grok·codex readiness는 보안 경계가 검증된 provider만 노출한다", async () => {
   const { CliCodexTextRunner, CliGrokTextRunner, loadCodexRuntimeConfig, loadGrokRuntimeConfig } = await import("../src/grok-oauth-proxy.mjs");
   const grokConfig = loadGrokRuntimeConfig({});
   const grok = await new CliGrokTextRunner(grokConfig).readiness();
   assert.ok(["installed", "unavailable"].includes(grok.status));
-  assert.ok(grok.resolvedBin);
+  assert.ok(["restricted", "disabled"].includes(grok.securityStatus));
+  assert.equal(grok.resolvedBin, undefined);
   if (grok.status === "installed") assert.match(grok.version, /grok/i);
   const codexConfig = loadCodexRuntimeConfig({});
   const codex = await new CliCodexTextRunner(codexConfig).readiness();
   assert.ok(["installed", "unavailable"].includes(codex.status));
+  assert.ok(["experimental", "disabled"].includes(codex.securityStatus));
+  assert.equal(codex.resolvedBin, undefined);
   if (codex.status === "installed") assert.match(codex.version, /codex/i);
 });
