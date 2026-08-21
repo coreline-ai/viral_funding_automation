@@ -285,6 +285,30 @@
                 <ul class="validation-issues" id="validation-issues" hidden></ul>
               </section>
               <p class="translate-status" id="translate-status" role="status" aria-live="polite"></p>
+              <section class="threads-preview-workbench" id="threads-preview-workbench" aria-label="Threads 게시물 미리보기" hidden>
+                <div class="threads-preview-view-tabs" role="tablist" aria-label="Threads 원고 보기">
+                  <button id="threads-editor-view" type="button" role="tab" aria-selected="true" aria-controls="compare-editors">원고</button>
+                  <button id="threads-preview-view" type="button" role="tab" aria-selected="false" aria-controls="threads-preview-panel" tabindex="-1">미리보기</button>
+                </div>
+                <section class="threads-preview-panel" id="threads-preview-panel" role="tabpanel" aria-labelledby="threads-preview-view" hidden>
+                  <header class="threads-preview-heading">
+                    <div>
+                      <p class="section-label">THREADS · READ-ONLY SIMULATION</p>
+                      <h4>Threads 스타일 미리보기</h4>
+                    </div>
+                    <div class="threads-preview-viewport-controls" role="group" aria-label="미리보기 폭">
+                      <button id="threads-preview-desktop" type="button" aria-pressed="true">Desktop · 680px</button>
+                      <button id="threads-preview-mobile" type="button" aria-pressed="false">Mobile · 390px</button>
+                    </div>
+                  </header>
+                  <p class="threads-preview-status" id="threads-preview-status" role="status" aria-live="polite"></p>
+                  <div class="threads-preview-simulation" id="threads-preview-frame" data-viewport="desktop">
+                    <ol class="threads-preview-cards" id="threads-preview-cards"></ol>
+                    <p class="threads-preview-empty" id="threads-preview-empty" hidden></p>
+                  </div>
+                  <p class="threads-preview-notice" id="threads-preview-notice"></p>
+                </section>
+              </section>
               <div class="compare-editors" id="compare-editors">
                 <div class="editor-column" id="source-column">
                   <p class="section-label" id="source-locale-label">원문 ko-KR</p>

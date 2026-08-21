@@ -55,6 +55,7 @@ const STATIC_ROUTES = new Map([
   ["/publish-intent.mjs", { file: "publish-intent.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/request-fingerprint.mjs", { file: "request-fingerprint.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/runtime-security.mjs", { file: "runtime-security.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
+  ["/threads-preview.mjs", { file: "threads-preview.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/workspace-migration.mjs", { file: "workspace-migration.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/dry-run-rehearsal.mjs", { file: "dry-run-rehearsal.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],
   ["/automation-go-live.mjs", { file: "automation-go-live.mjs", type: "text/javascript; charset=utf-8", root: MODULE_DIRECTORY }],

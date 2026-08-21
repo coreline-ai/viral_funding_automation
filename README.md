@@ -46,6 +46,8 @@
   - `POST /api/v1/dry-runs`는 loopback nonce 보호 아래 local receipt만 만들며 실제 플랫폼 connector·게시 요청을 만들지 않음
 - 실제 package dependencies와 GitHub Topics, 실행 요구사항과 현재 한계, 읽기 전용 공개 데모 경계를 분리
 - 마지막 작업을 브라우저 `localStorage`에 저장하고 이전 3종·12종 데이터를 구조화 문서로 마이그레이션
+- Threads 탭은 현재 선택 언어의 1~3개 원고를 순서·줄바꿈 그대로 확인하는 읽기 전용 스타일 미리보기를 제공하며, approval 상태·공개 handle·desktop/mobile 읽기 폭을 함께 표시함
+  - 미리보기는 외부 fetch·소셜 write·OAuth·connector·approval/publish intent/dry-run 요청을 만들지 않음
 - Codex 원고 생성은 이미 로그인된 loopback `proxy-codex`를 우선 사용. 이 앱은 OAuth token·CLI home·직접 `login`을 소유하지 않으며, 전용 `viral` caller credential으로만 Proxy에 요청함
 - 자동 게시, 예약 게시, SNS API 쓰기 연동 없음
 - 외부 패키지, LLM API Key, GitHub token의 브라우저 저장 없음

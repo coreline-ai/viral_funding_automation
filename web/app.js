@@ -38,6 +38,7 @@ import {
 } from "/platform-readiness.mjs";
 import { upgradeWorkspaceApprovalSnapshots, upgradeWorkspacePlatformReadiness } from "/workspace-migration.mjs";
 import { automationGoLiveAssessment, automationGoLiveReportMarkdown } from "/automation-go-live.mjs";
+import { createThreadsPreviewModel } from "/threads-preview.mjs";
 
 const DRAFT_CONFIG = {
   x1: {
@@ -241,6 +242,17 @@ const elements = {
   authorReady: document.querySelector("#author-ready"),
   authorReadyLabel: document.querySelector("#author-ready-label"),
   approvalSnapshotStatus: document.querySelector("#approval-snapshot-status"),
+  threadsPreviewWorkbench: document.querySelector("#threads-preview-workbench"),
+  threadsEditorView: document.querySelector("#threads-editor-view"),
+  threadsPreviewView: document.querySelector("#threads-preview-view"),
+  threadsPreviewPanel: document.querySelector("#threads-preview-panel"),
+  threadsPreviewStatus: document.querySelector("#threads-preview-status"),
+  threadsPreviewFrame: document.querySelector("#threads-preview-frame"),
+  threadsPreviewCards: document.querySelector("#threads-preview-cards"),
+  threadsPreviewEmpty: document.querySelector("#threads-preview-empty"),
+  threadsPreviewNotice: document.querySelector("#threads-preview-notice"),
+  threadsPreviewDesktop: document.querySelector("#threads-preview-desktop"),
+  threadsPreviewMobile: document.querySelector("#threads-preview-mobile"),
   compareEditors: document.querySelector("#compare-editors"),
   emptyTranslation: document.querySelector("#empty-translation"),
   sourceLocaleLabel: document.querySelector("#source-locale-label"),
@@ -292,6 +304,8 @@ const state = {
   baseline: null,
   preflight: createDefaultPreflight(),
   baselineLoading: false,
+  threadsPreviewMode: "editor",
+  threadsPreviewViewport: "desktop",
   dirty: false,
   persisted: false,
 };
@@ -711,6 +725,7 @@ function updatePlatformReadiness(mutator, { render = false } = {}) {
   }
   if (render) renderPlatformReadiness();
   renderDraftValidation();
+  if (!render) renderThreadsPreview();
   persistWorkspace();
 }
 
@@ -1036,6 +1051,7 @@ function renderPlatformReadiness() {
     elements.readinessReportButton.disabled = true;
     elements.readinessDryRunButton.disabled = true;
     renderDryRunReceipt();
+    renderThreadsPreview();
     return;
   }
   const record = assessment.readiness;
@@ -1095,6 +1111,7 @@ function renderPlatformReadiness() {
     || state.dryRunEvidence.approvalRevisionId !== activeDocument()?.internal?.approvalRevision?.revisionId
     || currentApprovalAssessment().status !== "approved";
   renderDryRunReceipt();
+  renderThreadsPreview();
 }
 
 function currentApprovalContext() {
@@ -1944,6 +1961,113 @@ function renderTranslateControls({ renderInputs = true } = {}) {
   if (renderInputs) renderAuthorInputs();
 }
 
+function currentThreadsPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("threads");
+  return createThreadsPreviewModel({
+    posts: entry?.publishFields?.posts ?? [],
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+  });
+}
+
+function appendThreadsPreviewCard(cardModel, identity) {
+  const item = document.createElement("li");
+  item.className = "threads-preview-card";
+
+  const axis = document.createElement("div");
+  axis.className = "threads-preview-axis";
+  const avatar = document.createElement("span");
+  avatar.className = "threads-preview-avatar";
+  avatar.textContent = identity.avatarText;
+  avatar.setAttribute("aria-hidden", "true");
+  axis.append(avatar);
+  if (cardModel.index < cardModel.total) {
+    const connector = document.createElement("span");
+    connector.className = "threads-preview-connector";
+    connector.setAttribute("aria-hidden", "true");
+    axis.append(connector);
+  }
+
+  const content = document.createElement("article");
+  content.className = "threads-preview-card-content";
+  const byline = document.createElement("div");
+  byline.className = "threads-preview-byline";
+  const identityLabel = document.createElement("span");
+  identityLabel.className = "threads-preview-identity-label";
+  identityLabel.textContent = identity.label;
+  const handle = document.createElement("strong");
+  handle.textContent = identity.handle;
+  const previewLabel = document.createElement("span");
+  previewLabel.className = "threads-preview-time";
+  previewLabel.textContent = "미리보기";
+  byline.append(identityLabel, handle, previewLabel);
+
+  const text = document.createElement("p");
+  text.className = "threads-preview-post-text";
+  text.dir = "auto";
+  text.textContent = cardModel.text;
+
+  const sequence = document.createElement("p");
+  sequence.className = "threads-preview-sequence";
+  sequence.textContent = cardModel.sequenceLabel;
+
+  const actions = document.createElement("p");
+  actions.className = "threads-preview-actions";
+  actions.textContent = "Reply  ·  Repost  ·  Like  ·  Share";
+  actions.setAttribute("aria-hidden", "true");
+  content.append(byline, text, sequence, actions);
+  item.append(axis, content);
+  elements.threadsPreviewCards.append(item);
+}
+
+function renderThreadsPreview() {
+  if (!elements.threadsPreviewWorkbench) return;
+  const isThreads = state.phase === "success" && state.activeDraft === "threads";
+  elements.threadsPreviewWorkbench.hidden = !isThreads;
+  if (!isThreads) {
+    elements.compareEditors.hidden = false;
+    elements.editorHelp.hidden = false;
+    elements.compareEditors.removeAttribute("role");
+    elements.compareEditors.removeAttribute("aria-labelledby");
+    elements.threadsPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.threadsPreviewMode === "preview";
+  elements.threadsEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.threadsEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.threadsPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.threadsPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.threadsPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "threads-editor-view");
+
+  const model = currentThreadsPreviewModel();
+  elements.threadsPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.threadsPreviewStatus.dataset.state = model.status.key;
+  elements.threadsPreviewNotice.textContent = `${model.notice} 외부 네트워크 write 0회.`;
+  elements.threadsPreviewFrame.dataset.viewport = state.threadsPreviewViewport;
+  elements.threadsPreviewDesktop.setAttribute("aria-pressed", String(state.threadsPreviewViewport === "desktop"));
+  elements.threadsPreviewMobile.setAttribute("aria-pressed", String(state.threadsPreviewViewport === "mobile"));
+  elements.threadsPreviewCards.replaceChildren();
+  elements.threadsPreviewEmpty.hidden = model.cards.length > 0;
+  elements.threadsPreviewEmpty.textContent = model.emptyMessage;
+  for (const card of model.cards) appendThreadsPreviewCard(card, model.identity);
+}
+
+function selectThreadsPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "threads") return;
+  state.threadsPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderThreadsPreview();
+  if (focus) (state.threadsPreviewMode === "preview" ? elements.threadsPreviewView : elements.threadsEditorView).focus();
+}
+
 function renderActiveDraft({ focus = false } = {}) {
   const config = DRAFT_CONFIG[state.activeDraft];
   const source = localeEntry(SOURCE_LOCALE);
@@ -1997,6 +2121,7 @@ function renderActiveDraft({ focus = false } = {}) {
     tab.tabIndex = active ? 0 : -1;
     if (active) elements.draftPanel.setAttribute("aria-labelledby", tab.id);
   }
+  renderThreadsPreview();
   if (focus) {
     if (state.activeLocale !== SOURCE_LOCALE) elements.translationEditor.focus();
     else elements.editor.focus();
@@ -2352,6 +2477,33 @@ for (const tab of elements.tabs) {
     elements.tabs[next].focus();
   });
 }
+
+const threadsPreviewViewButtons = [elements.threadsEditorView, elements.threadsPreviewView];
+for (const [index, button] of threadsPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectThreadsPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % threadsPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + threadsPreviewViewButtons.length) % threadsPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = threadsPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectThreadsPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.threadsPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "threads") return;
+  state.threadsPreviewViewport = "desktop";
+  renderThreadsPreview();
+});
+
+elements.threadsPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "threads") return;
+  state.threadsPreviewViewport = "mobile";
+  renderThreadsPreview();
+});
 
 function updateSourceFromEditor() {
   const document = activeDocument();

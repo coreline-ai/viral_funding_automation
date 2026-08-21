@@ -1174,6 +1174,225 @@ a:hover {
 .translate-status[data-tone="error"] { color: var(--danger); }
 .translate-status[data-tone="success"] { color: var(--mint); }
 
+.threads-preview-workbench {
+  margin: 0 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.threads-preview-view-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.threads-preview-view-tabs button {
+  min-height: 44px;
+  padding: 0 15px;
+  color: var(--text-3);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+}
+
+.threads-preview-view-tabs button[aria-selected="true"] {
+  color: var(--text);
+  background: rgba(101, 181, 255, 0.08);
+  box-shadow: inset 0 2px 0 var(--blue);
+}
+
+.threads-preview-panel {
+  padding: 18px;
+}
+
+.threads-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.threads-preview-heading h4 {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.threads-preview-heading .section-label {
+  margin: 0;
+}
+
+.threads-preview-viewport-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.threads-preview-viewport-controls button {
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 11px;
+  background: rgba(7, 9, 11, 0.58);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.threads-preview-viewport-controls button[aria-pressed="true"] {
+  color: var(--text);
+  border-color: rgba(101, 181, 255, 0.7);
+  background: rgba(101, 181, 255, 0.13);
+}
+
+.threads-preview-status {
+  min-height: 1.4em;
+  margin: 14px 0 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.threads-preview-status[data-state="approved"] { color: var(--mint); }
+.threads-preview-status[data-state="stale"],
+.threads-preview-status[data-state="empty"] { color: var(--amber); }
+
+.threads-preview-simulation {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 18px;
+  color: #161616;
+  color-scheme: light;
+  background: #f7f7f5;
+  border: 1px solid #d4d4d0;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.threads-preview-simulation[data-viewport="mobile"] {
+  width: min(100%, 390px);
+  padding: 15px;
+  border-radius: 20px;
+}
+
+.threads-preview-cards {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.threads-preview-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 11px;
+  min-width: 0;
+}
+
+.threads-preview-axis {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.threads-preview-avatar {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #f7f7f5;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  background: #242424;
+  border: 1px solid #242424;
+  border-radius: 50%;
+}
+
+.threads-preview-connector {
+  width: 1px;
+  min-height: 29px;
+  flex: 1 1 auto;
+  margin: 5px 0;
+  background: #c7c7c3;
+}
+
+.threads-preview-card-content {
+  min-width: 0;
+  padding: 1px 0 18px;
+}
+
+.threads-preview-byline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: #4d4d4a;
+  font-size: 11px;
+}
+
+.threads-preview-byline strong {
+  color: #171717;
+  font-size: 13px;
+}
+
+.threads-preview-identity-label {
+  color: #6d6d68;
+}
+
+.threads-preview-time {
+  color: #777772;
+}
+
+.threads-preview-time::before {
+  margin-right: 5px;
+  content: "·";
+}
+
+.threads-preview-post-text {
+  margin: 5px 0 0;
+  color: #171717;
+  font-size: 15px;
+  line-height: 1.52;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.threads-preview-sequence {
+  margin: 10px 0 0;
+  color: #6a6a65;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.threads-preview-actions {
+  margin: 11px 0 0;
+  color: #777772;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.threads-preview-empty {
+  margin: 0;
+  color: #5c5c58;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.threads-preview-notice {
+  margin: 10px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .compare-editors {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1654,6 +1873,11 @@ a:hover {
   .compare-editors { grid-template-columns: 1fr; }
   .compare-editors.is-mobile-ko #translation-column,
   .compare-editors.is-mobile-en #source-column { display: none; }
+  .threads-preview-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .threads-preview-viewport-controls button { flex: 1 1 150px; }
   .constraint-summary dl { grid-template-columns: 1fr; }
   .compose-workbench { gap: 10px; }
 
@@ -1762,6 +1986,34 @@ a:hover {
     padding: 19px 15px 13px;
   }
 
+  .threads-preview-panel {
+    padding: 14px;
+  }
+
+  .threads-preview-simulation {
+    padding: 13px;
+    border-radius: 10px;
+  }
+
+  .threads-preview-simulation[data-viewport="mobile"] {
+    width: 100%;
+    border-radius: 14px;
+  }
+
+  .threads-preview-card {
+    grid-template-columns: 27px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .threads-preview-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .threads-preview-post-text {
+    font-size: 14px;
+  }
+
   .editor-label-row {
     align-items: flex-start;
     flex-direction: column;
@@ -1820,5 +2072,26 @@ a:hover {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .threads-preview-workbench,
+  .threads-preview-view-tabs button,
+  .threads-preview-viewport-controls button,
+  .threads-preview-simulation,
+  .threads-preview-avatar {
+    forced-color-adjust: auto;
+    border-color: CanvasText;
+  }
+
+  .threads-preview-simulation {
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  .threads-preview-post-text,
+  .threads-preview-byline strong {
+    color: CanvasText;
   }
 }

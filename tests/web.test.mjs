@@ -16,7 +16,7 @@ test("GUI에 입력·요약·탭·편집·복사·다운로드 의미 구조가 
   assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/);
   assert.match(html, /memory_node_graph 예제로 1턴 실행/);
   assert.match(html, /role="tablist"/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 18);
+  assert.equal((html.match(/role="tab"[^>]*data-draft=/g) ?? []).length, 18);
   for (const label of ["X 1안", "X 스레드", "Threads", "Reddit", "LinkedIn", "Disquiet", "GeekNews", "DEV", "Shorts", "Show HN", "Facebook", "Instagram", "Product Hunt", "Peerlist", "Indie Hackers", "OKKY"]) {
     assert.match(html, new RegExp(`>${label}<`));
   }
@@ -288,4 +288,38 @@ test("보안 격리 미검증 OAuth provider는 GUI에서 실행 요청 자체�
   assert.match(app, /readiness\?\.securityStatus !== "disabled"/);
   assert.match(app, /OAuth provider는 보안 격리 검증 전에는 실행할 수 없습니다/);
   assert.match(app, /elements\.translateButton\.disabled = disabled \|\| !ready \|\| !providerReady/);
+});
+
+test("Threads 탭은 안전한 읽기 전용 게시물 미리보기와 접근성 제어를 제공한다", () => {
+  assert.match(html, /id="threads-preview-workbench"/);
+  assert.match(html, /id="threads-editor-view"[^>]*role="tab"/);
+  assert.match(html, /id="threads-preview-view"[^>]*role="tab"/);
+  assert.match(html, /id="threads-preview-panel"[^>]*role="tabpanel"/);
+  assert.match(html, /id="threads-preview-desktop"[^>]*aria-pressed="true"/);
+  assert.match(html, /id="threads-preview-mobile"[^>]*aria-pressed="false"/);
+  assert.match(html, /id="threads-preview-cards"/);
+  assert.match(html, /<ol class="threads-preview-cards"/);
+  assert.match(html, /Threads 스타일 미리보기/);
+  assert.match(app, /model\.notice/);
+
+  assert.match(app, /from "\/threads-preview\.mjs"/);
+  assert.match(app, /function currentThreadsPreviewModel/);
+  assert.match(app, /posts: entry\?\.publishFields\?\.posts \?\? \[\]/);
+  assert.match(app, /function renderThreadsPreview/);
+  assert.match(app, /text\.textContent = cardModel\.text/);
+  assert.match(app, /actions\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(app, /event\.key === "ArrowRight"/);
+  assert.match(app, /event\.key === "Home"/);
+  assert.match(app, /event\.key === "End"/);
+  assert.match(app, /threadsPreviewViewport/);
+  const previewRenderer = app.slice(app.indexOf("function currentThreadsPreviewModel"), app.indexOf("function renderActiveDraft"));
+  assert.doesNotMatch(previewRenderer, /fetch\s*\(|innerHTML|insertAdjacentHTML|approval-revisions|publish-intents|dry-runs/);
+  const workspaceSnapshot = app.slice(app.indexOf("function createWorkspaceSnapshot"), app.indexOf("function persistWorkspace"));
+  assert.doesNotMatch(workspaceSnapshot, /threadsPreview/);
+
+  assert.match(css, /\.threads-preview-simulation\s*\{/);
+  assert.match(css, /\.threads-preview-post-text\s*\{[^}]*white-space:\s*pre-wrap/s);
+  assert.match(css, /\.threads-preview-post-text\s*\{[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(css, /@media \(forced-colors: active\)/);
+  assert.match(css, /\.threads-preview-simulation\[data-viewport="mobile"\]/);
 });

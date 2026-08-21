@@ -83,6 +83,10 @@ test("정적 파일만 allowlist로 제공하고 보안 헤더를 설정한다",
 
     assert.equal((await fetch(`${origin}/styles.css`)).status, 200);
     assert.equal((await fetch(`${origin}/app.js`)).status, 200);
+    const threadsPreview = await fetch(`${origin}/threads-preview.mjs`);
+    assert.equal(threadsPreview.status, 200);
+    assert.match(threadsPreview.headers.get("content-type"), /^text\/javascript/);
+    assert.match(await threadsPreview.text(), /createThreadsPreviewModel/);
     assert.equal((await fetch(`${origin}/channel-state.mjs`)).status, 200);
     const platformRegistry = await fetch(`${origin}/platform-registry.mjs`);
     assert.equal(platformRegistry.status, 200);
