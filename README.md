@@ -48,11 +48,47 @@
 - 마지막 작업을 브라우저 `localStorage`에 저장하고 이전 3종·12종 데이터를 구조화 문서로 마이그레이션
 - Threads 탭은 현재 선택 언어의 1~3개 원고를 순서·줄바꿈 그대로 확인하는 읽기 전용 스타일 미리보기를 제공하며, approval 상태·공개 handle·desktop/mobile 읽기 폭을 함께 표시함
   - 미리보기는 외부 fetch·소셜 write·OAuth·connector·approval/publish intent/dry-run 요청을 만들지 않음
+- X 1·2·3안과 X 스레드 탭은 앱 고유의 `X 게시 전 미리보기`를 제공하며, 다크 읽기 열의 계정 행·본문·진단·연속 원고 rail로 줄바꿈·로컬 가중 문자 추정·URL 수·승인 상태·desktop/mobile 읽기 폭을 확인함
+  - 실제 X UI/Post·브랜드 자산·계정 이미지·반응 수치를 재현하지 않으며, 외부 X 요청·게시·예약은 항상 `0회`
+- LinkedIn 탭은 `원고 | 게시 전 미리보기`를 제공하며, 현재 언어의 본문을 전문 피드 읽기 폭·3,000자 진단·공개 범위/댓글 설정 확인 상태·desktop/mobile preset에서 검토함
+  - 실제 LinkedIn 프로필·반응 수·timestamp·게시 버튼을 만들지 않으며, 외부 LinkedIn 요청·게시·예약은 항상 `0회`
+- Facebook 탭은 `원고 | Reels 미리보기 | 그룹 미리보기`를 제공하며, Reels 캡션은 세로 읽기 폭과 원본 자산 확인 상태로, 그룹 본문은 선택 그룹명·언어·규칙 URL·확인일이 있을 때만 별도 읽기 surface로 검토함
+  - 실제 Facebook Page·그룹·영상 파일·반응 수치·업로드·게시 버튼은 만들지 않으며, 외부 Facebook 요청·게시·예약은 항상 `0회`
+- Instagram 탭은 `원고 | Reels 미리보기`를 제공하며, 표지 문구·캡션을 별도 9:16 local reading surface에서 보고 원본 세로 자산·표지 안전 영역·프로필 링크 readiness를 함께 확인함
+  - 실제 Instagram 프로필·영상 파일·음원·반응 수치·업로드·게시 버튼은 만들지 않으며, 외부 Instagram 요청·게시·예약은 항상 `0회`
+- YouTube Shorts 탭은 `원고 | Shorts 미리보기`를 제공하며, title·description·3개 이상 shot 자막을 독립적인 9:16 local storyboard에서 검토하고 제목 100자·설명 5,000자·세로 영상·권리 확인 상태를 함께 표시함
+  - 실제 YouTube 채널·영상 파일·player·조회/반응 수치·업로드·게시 예약은 만들지 않으며, 외부 YouTube 요청·게시·예약은 항상 `0회`
+- TikTok은 생성 채널 수를 늘리지 않는 session-only `Preview Lab`을 제공하며, 사람이 직접 입력한 캡션·첫 화면 문구·공개 범위 후보·원본/워터마크 확인 상태를 세로 읽기 surface에서 검토함
+  - 입력은 새로고침 시 초기화되고 approval snapshot·localStorage에 저장되지 않는다. 실제 TikTok 계정·음원·영상 파일·업로드·게시·예약·API 요청은 항상 `0회`
+- Discord는 생성 채널 수를 늘리지 않는 session-only `Discord 메시지 미리보기`를 제공하며, 직접 입력한 대상 채널 별칭·메시지·선택 context와 `@` 후보의 수동 확인을 640px/390px 독자적 local proof sheet에서 검토함
+  - message 2,000자·context text 6,000자 경계와 공개 HTTPS 링크만 진단하며 기본 알림 대상은 없음이다. 입력은 새로고침 시 초기화되고 approval snapshot·localStorage에 저장되지 않는다. 실제 Discord UI·서버·계정·반응·첨부·전송·예약·API 요청은 항상 `0회`
+- Bluesky는 생성 채널 수를 늘리지 않는 session-only `Bluesky 짧은 게시문 미리보기`를 제공하며, 직접 입력한 언어·short text와 URL/@handle 후보의 줄바꿈·300 grapheme·UTF-8 byte 진단을 독자적 local proof sheet에서 검토함
+  - 후보는 local 정규식 진단일 뿐 DID 해석·URL metadata·facet byte offset 생성은 하지 않는다. 입력은 새로고침 시 초기화되고 approval snapshot·localStorage에 저장되지 않는다. 실제 Bluesky UI·계정·피드·반응·AT Protocol write·API 요청은 항상 `0회`
+- Mastodon은 생성 채널 수를 늘리지 않는 session-only `Mastodon status 미리보기`를 제공하며, 직접 입력한 instance 별칭·status 문자 상한·URL 예약 문자·공개 범위·content warning·본문을 독자적 local proof sheet에서 검토함
+  - 상한과 URL 예약 문자는 인스턴스에서 직접 확인해 입력하는 local note일 뿐 instance API를 조회하지 않는다. 입력은 새로고침 시 초기화되고 approval snapshot·localStorage에 저장되지 않는다. 실제 Mastodon UI·instance·계정·timeline·reaction·API 요청·게시 기능은 항상 `0회`
+- Product Hunt 탭은 `원고 | Launch 미리보기`를 제공하며, name·tagline·description·Maker 첫 댓글을 product URL 후보·pricing·topic·Maker·thumbnail/gallery readiness와 분리한 local launch sheet에서 검토함
+  - 실제 Product Hunt 로고·제품 이미지·투표·순위·리뷰·등록·업로드·게시·예약은 만들지 않으며, 외부 Product Hunt 요청은 항상 `0회`
+- Peerlist 탭은 `원고 | Launch 미리보기`를 제공하며, name·tagline·Maker 댓글을 개인 profile·Verified·프로젝트 100%·cover 참조·demo URL·launch day의 수동 확인과 분리한 local proof sheet에서 검토함
+  - 실제 Peerlist profile·cover file·투표·순위·등록·업로드·게시·예약은 만들지 않으며, 외부 Peerlist 요청은 항상 `0회`
+- Disquiet 탭은 `원고 | 제품·포스트 미리보기`를 제공하며, 제품명·태그라인·공개 링크와 연결 포스트를 분리하고 제품 제작 권한·등록/검토 요청·검토 승인 상태를 local gate로 검토함
+  - 실제 Disquiet 계정·제품 등록/검토·업보트·댓글·게시 기능은 만들지 않으며, 외부 Disquiet 요청은 항상 `0회`
+- Reddit 탭은 `사실 자료 | 직접 작성 미리보기`를 제공하며, 검증된 facts와 사람이 이 브라우저 세션에서 입력한 title/body·post type·NSFW/spoiler를 분리해 community·규칙·flair 준비 상태만 검토함
+  - 직접 작성 초안은 새로고침 시 사라지고 workspace·localStorage·approval snapshot·복사·dry-run에 저장되지 않는다. 실제 Reddit 계정·투표·댓글·제출·업로드·게시 기능은 만들지 않으며, 외부 Reddit 요청은 항상 `0회`
+- Indie Hackers 탭은 `원고 | 토론 초안 미리보기`를 제공하며, title/body와 작성자가 직접 입력한 제작 계기·어려운 결정·포기한 접근을 분리해 문제·배움·질문 흐름과 1인칭 제작 표현의 귀속 근거를 검토함
+  - 실제 Indie Hackers 계정·그룹·댓글·반응·등록 기능은 만들지 않으며, 외부 Indie Hackers 요청은 항상 `0회`
+- DEV 탭은 `사실 자료 | article 준비 미리보기`를 제공하며, 참고 facts와 작성자가 이 브라우저 세션에서 직접 입력한 title·tags·body·AI 공개를 분리해 실제 사례·코드/실행 예·실패/한계·AI 공개 준비 상태를 검토함
+  - 직접 입력은 새로고침 시 사라지고 workspace·localStorage·approval snapshot·복사·dry-run에 저장되지 않는다. 실제 DEV 계정·태그 조회·게시·예약·API 요청은 항상 `0회`
+- OKKY 탭은 `원고 | 커뮤니티 글 미리보기`를 제공하며, 한국어 title/body를 피드백 질문·게시 문맥·게시판 규칙 확인 상태와 함께 640px/390px 읽기 폭에서 검토함
+  - 게시 문맥 선택은 새로고침 시 사라지는 local check일 뿐 실제 OKKY 게시판 category를 지정하지 않는다. 실제 OKKY 계정·댓글·추천·제출·API 요청은 항상 `0회`
+- GeekNews 탭은 `원고 | Show 미리보기`를 제공하며, 한국어 title/body를 고정 `Show` 유형·공개 저장소/직접 체험 URL 후보·가입 기간/반복 등록 규칙/최종 원고 확인과 분리한 640px/390px local proof sheet에서 검토함
+  - 실제 GeekNews 뉴스 선택·계정·이미지·점수·댓글·등록·API 요청은 항상 `0회`이며, Show 등록 조건은 수동 preflight에서만 직접 확인한다
+- Show HN 탭은 `직접 작성 | 읽기 미리보기`를 제공하며, 작성자가 세션에서 직접 쓴 title/body·source/demo와 직접 작성·개인 작업/토론 참여 확인만 640px/390px local reading sheet에서 검토함
+  - 생성 원고·번역·AI 교정·복사·승인 snapshot·dry-run은 읽지 않고, 새로고침하면 입력이 사라진다. 실제 Hacker News UI·계정·투표·댓글·제출·API 요청은 항상 `0회`다
 - Codex 원고 생성은 이미 로그인된 loopback `proxy-codex`를 우선 사용. 이 앱은 OAuth token·CLI home·직접 `login`을 소유하지 않으며, 전용 `viral` caller credential으로만 Proxy에 요청함
 - 자동 게시, 예약 게시, SNS API 쓰기 연동 없음
 - 외부 패키지, LLM API Key, GitHub token의 브라우저 저장 없음
 
-TikTok은 Shorts의 세로 영상을 재사용하는 후보로 상태를 표시합니다. Discord·Bluesky·Mastodon은 상태만 표시하는 후순위 또는 선택 채널입니다. 모든 원고가 생성되어도 동시에 게시하지 않고, 운영 게이트를 확인한 채널부터 한 번에 하나씩 게시합니다.
+TikTok은 Shorts의 세로 영상을 재사용할 수 있는 후보를 **로컬 입력으로만** 검토합니다. Discord·Bluesky·Mastodon도 생성 채널을 늘리지 않는 **로컬 수동 입력만** 검토합니다. 모든 원고가 생성되어도 동시에 게시하지 않고, 운영 게이트를 확인한 채널부터 한 번에 하나씩 게시합니다.
 
 ## 프로젝트 1차 종료 상태
 

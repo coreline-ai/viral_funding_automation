@@ -39,6 +39,25 @@ import {
 import { upgradeWorkspaceApprovalSnapshots, upgradeWorkspacePlatformReadiness } from "/workspace-migration.mjs";
 import { automationGoLiveAssessment, automationGoLiveReportMarkdown } from "/automation-go-live.mjs";
 import { createThreadsPreviewModel } from "/threads-preview.mjs";
+import { createXPreviewModel } from "/x-preview.mjs";
+import { createLinkedInPreviewModel } from "/linkedin-preview.mjs";
+import { createFacebookPreviewModel } from "/facebook-preview.mjs";
+import { createInstagramPreviewModel } from "/instagram-preview.mjs";
+import { createShortsPreviewModel } from "/shorts-preview.mjs";
+import { createProductHuntPreviewModel } from "/product-hunt-preview.mjs";
+import { createPeerlistPreviewModel } from "/peerlist-preview.mjs";
+import { createDisquietPreviewModel } from "/disquiet-preview.mjs";
+import { createRedditPreviewModel } from "/reddit-preview.mjs";
+import { createIndieHackersPreviewModel } from "/indie-hackers-preview.mjs";
+import { createTikTokPreviewModel } from "/tiktok-preview.mjs";
+import { createDevPreviewModel } from "/dev-preview.mjs";
+import { createOkkyPreviewModel } from "/okky-preview.mjs";
+import { createGeekNewsPreviewModel } from "/geeknews-preview.mjs";
+import { createShowHnPreviewModel } from "/show-hn-preview.mjs";
+import { createDiscordPreviewModel } from "/discord-preview.mjs";
+import { createBlueskyPreviewModel } from "/bluesky-preview.mjs";
+import { createMastodonPreviewModel } from "/mastodon-preview.mjs";
+import { previewSpecForChannel, previewSpecForPlatform } from "/platform-preview-registry.mjs";
 
 const DRAFT_CONFIG = {
   x1: {
@@ -153,6 +172,8 @@ const DRAFT_CONFIG = {
 
 const DRAFT_KEYS = Object.keys(DRAFT_CONFIG);
 const X_SINGLE_KEYS = new Set(["x1", "x2", "x3"]);
+const X_REVIEW_KEYS = new Set(["x1", "x2", "x3", "xThread"]);
+const X_PREVIEW_URL_PATTERN = /https?:\/\/[^\s)\]]+/giu;
 const PREFLIGHT_CONFIG = {
   accountReady: "GeekNews 가입 후 일주일 경과 확인",
   rulesReviewed: "공식 이용법과 반복 등록 금지 규칙 확인",
@@ -242,6 +263,19 @@ const elements = {
   authorReady: document.querySelector("#author-ready"),
   authorReadyLabel: document.querySelector("#author-ready-label"),
   approvalSnapshotStatus: document.querySelector("#approval-snapshot-status"),
+  xReviewWorkbench: document.querySelector("#x-review-workbench"),
+  xEditorView: document.querySelector("#x-editor-view"),
+  xReviewView: document.querySelector("#x-review-view"),
+  xReviewPanel: document.querySelector("#x-review-panel"),
+  xReviewStatus: document.querySelector("#x-review-status"),
+  xReviewContext: document.querySelector("#x-review-context"),
+  xReviewIssues: document.querySelector("#x-review-issues"),
+  xReviewFrame: document.querySelector("#x-review-frame"),
+  xReviewCards: document.querySelector("#x-review-cards"),
+  xReviewEmpty: document.querySelector("#x-review-empty"),
+  xReviewNotice: document.querySelector("#x-review-notice"),
+  xReviewDesktop: document.querySelector("#x-review-desktop"),
+  xReviewMobile: document.querySelector("#x-review-mobile"),
   threadsPreviewWorkbench: document.querySelector("#threads-preview-workbench"),
   threadsEditorView: document.querySelector("#threads-editor-view"),
   threadsPreviewView: document.querySelector("#threads-preview-view"),
@@ -253,6 +287,189 @@ const elements = {
   threadsPreviewNotice: document.querySelector("#threads-preview-notice"),
   threadsPreviewDesktop: document.querySelector("#threads-preview-desktop"),
   threadsPreviewMobile: document.querySelector("#threads-preview-mobile"),
+  linkedinPreviewWorkbench: document.querySelector("#linkedin-preview-workbench"),
+  linkedinEditorView: document.querySelector("#linkedin-editor-view"),
+  linkedinPreviewView: document.querySelector("#linkedin-preview-view"),
+  linkedinPreviewPanel: document.querySelector("#linkedin-preview-panel"),
+  linkedinPreviewStatus: document.querySelector("#linkedin-preview-status"),
+  linkedinPreviewIssues: document.querySelector("#linkedin-preview-issues"),
+  linkedinPreviewFrame: document.querySelector("#linkedin-preview-frame"),
+  linkedinPreviewPost: document.querySelector("#linkedin-preview-post"),
+  linkedinPreviewEmpty: document.querySelector("#linkedin-preview-empty"),
+  linkedinPreviewNotice: document.querySelector("#linkedin-preview-notice"),
+  linkedinPreviewDesktop: document.querySelector("#linkedin-preview-desktop"),
+  linkedinPreviewMobile: document.querySelector("#linkedin-preview-mobile"),
+  facebookPreviewWorkbench: document.querySelector("#facebook-preview-workbench"),
+  facebookEditorView: document.querySelector("#facebook-editor-view"),
+  facebookReelsView: document.querySelector("#facebook-reels-view"),
+  facebookGroupView: document.querySelector("#facebook-group-view"),
+  facebookPreviewPanel: document.querySelector("#facebook-preview-panel"),
+  facebookPreviewTitle: document.querySelector("#facebook-preview-title"),
+  facebookPreviewStatus: document.querySelector("#facebook-preview-status"),
+  facebookPreviewIssues: document.querySelector("#facebook-preview-issues"),
+  facebookPreviewFrame: document.querySelector("#facebook-preview-frame"),
+  facebookPreviewSurface: document.querySelector("#facebook-preview-surface"),
+  facebookPreviewEmpty: document.querySelector("#facebook-preview-empty"),
+  facebookPreviewNotice: document.querySelector("#facebook-preview-notice"),
+  facebookPreviewDesktop: document.querySelector("#facebook-preview-desktop"),
+  facebookPreviewMobile: document.querySelector("#facebook-preview-mobile"),
+  instagramPreviewWorkbench: document.querySelector("#instagram-preview-workbench"),
+  instagramEditorView: document.querySelector("#instagram-editor-view"),
+  instagramPreviewView: document.querySelector("#instagram-preview-view"),
+  instagramPreviewPanel: document.querySelector("#instagram-preview-panel"),
+  instagramPreviewStatus: document.querySelector("#instagram-preview-status"),
+  instagramPreviewIssues: document.querySelector("#instagram-preview-issues"),
+  instagramPreviewFrame: document.querySelector("#instagram-preview-frame"),
+  instagramPreviewSurface: document.querySelector("#instagram-preview-surface"),
+  instagramPreviewEmpty: document.querySelector("#instagram-preview-empty"),
+  instagramPreviewNotice: document.querySelector("#instagram-preview-notice"),
+  instagramPreviewDesktop: document.querySelector("#instagram-preview-desktop"),
+  instagramPreviewMobile: document.querySelector("#instagram-preview-mobile"),
+  shortsPreviewWorkbench: document.querySelector("#shorts-preview-workbench"),
+  shortsEditorView: document.querySelector("#shorts-editor-view"),
+  shortsPreviewView: document.querySelector("#shorts-preview-view"),
+  shortsPreviewPanel: document.querySelector("#shorts-preview-panel"),
+  shortsPreviewStatus: document.querySelector("#shorts-preview-status"),
+  shortsPreviewIssues: document.querySelector("#shorts-preview-issues"),
+  shortsPreviewFrame: document.querySelector("#shorts-preview-frame"),
+  shortsPreviewSurface: document.querySelector("#shorts-preview-surface"),
+  shortsPreviewEmpty: document.querySelector("#shorts-preview-empty"),
+  shortsPreviewNotice: document.querySelector("#shorts-preview-notice"),
+  shortsPreviewDesktop: document.querySelector("#shorts-preview-desktop"),
+  shortsPreviewMobile: document.querySelector("#shorts-preview-mobile"),
+  productHuntPreviewWorkbench: document.querySelector("#product-hunt-preview-workbench"),
+  productHuntEditorView: document.querySelector("#product-hunt-editor-view"),
+  productHuntPreviewView: document.querySelector("#product-hunt-preview-view"),
+  productHuntPreviewPanel: document.querySelector("#product-hunt-preview-panel"),
+  productHuntPreviewStatus: document.querySelector("#product-hunt-preview-status"),
+  productHuntPreviewIssues: document.querySelector("#product-hunt-preview-issues"),
+  productHuntPreviewFrame: document.querySelector("#product-hunt-preview-frame"),
+  productHuntPreviewSurface: document.querySelector("#product-hunt-preview-surface"),
+  productHuntPreviewEmpty: document.querySelector("#product-hunt-preview-empty"),
+  productHuntPreviewNotice: document.querySelector("#product-hunt-preview-notice"),
+  productHuntPreviewDesktop: document.querySelector("#product-hunt-preview-desktop"),
+  productHuntPreviewMobile: document.querySelector("#product-hunt-preview-mobile"),
+  peerlistPreviewWorkbench: document.querySelector("#peerlist-preview-workbench"),
+  peerlistEditorView: document.querySelector("#peerlist-editor-view"),
+  peerlistPreviewView: document.querySelector("#peerlist-preview-view"),
+  peerlistPreviewPanel: document.querySelector("#peerlist-preview-panel"),
+  peerlistPreviewStatus: document.querySelector("#peerlist-preview-status"),
+  peerlistPreviewIssues: document.querySelector("#peerlist-preview-issues"),
+  peerlistPreviewFrame: document.querySelector("#peerlist-preview-frame"),
+  peerlistPreviewSurface: document.querySelector("#peerlist-preview-surface"),
+  peerlistPreviewEmpty: document.querySelector("#peerlist-preview-empty"),
+  peerlistPreviewNotice: document.querySelector("#peerlist-preview-notice"),
+  peerlistPreviewDesktop: document.querySelector("#peerlist-preview-desktop"),
+  peerlistPreviewMobile: document.querySelector("#peerlist-preview-mobile"),
+  disquietPreviewWorkbench: document.querySelector("#disquiet-preview-workbench"),
+  disquietEditorView: document.querySelector("#disquiet-editor-view"),
+  disquietPreviewView: document.querySelector("#disquiet-preview-view"),
+  disquietPreviewPanel: document.querySelector("#disquiet-preview-panel"),
+  disquietPreviewStatus: document.querySelector("#disquiet-preview-status"),
+  disquietPreviewIssues: document.querySelector("#disquiet-preview-issues"),
+  disquietPreviewFrame: document.querySelector("#disquiet-preview-frame"),
+  disquietPreviewSurface: document.querySelector("#disquiet-preview-surface"),
+  disquietPreviewEmpty: document.querySelector("#disquiet-preview-empty"),
+  disquietPreviewNotice: document.querySelector("#disquiet-preview-notice"),
+  disquietPreviewDesktop: document.querySelector("#disquiet-preview-desktop"),
+  disquietPreviewMobile: document.querySelector("#disquiet-preview-mobile"),
+  redditPreviewWorkbench: document.querySelector("#reddit-preview-workbench"),
+  redditEditorView: document.querySelector("#reddit-editor-view"),
+  redditPreviewView: document.querySelector("#reddit-preview-view"),
+  redditPreviewPanel: document.querySelector("#reddit-preview-panel"),
+  redditBriefForm: document.querySelector("#reddit-brief-form"),
+  redditPostTypeInput: document.querySelector("#reddit-post-type-input"),
+  redditTitleInput: document.querySelector("#reddit-title-input"),
+  redditBodyInput: document.querySelector("#reddit-body-input"),
+  redditNsfwInput: document.querySelector("#reddit-nsfw-input"),
+  redditSpoilerInput: document.querySelector("#reddit-spoiler-input"),
+  redditPreviewReset: document.querySelector("#reddit-preview-reset"),
+  redditPreviewStatus: document.querySelector("#reddit-preview-status"),
+  redditPreviewIssues: document.querySelector("#reddit-preview-issues"),
+  redditPreviewFrame: document.querySelector("#reddit-preview-frame"),
+  redditPreviewSurface: document.querySelector("#reddit-preview-surface"),
+  redditPreviewEmpty: document.querySelector("#reddit-preview-empty"),
+  redditPreviewNotice: document.querySelector("#reddit-preview-notice"),
+  redditPreviewDesktop: document.querySelector("#reddit-preview-desktop"),
+  redditPreviewMobile: document.querySelector("#reddit-preview-mobile"),
+  indieHackersPreviewWorkbench: document.querySelector("#indie-hackers-preview-workbench"),
+  indieHackersEditorView: document.querySelector("#indie-hackers-editor-view"),
+  indieHackersPreviewView: document.querySelector("#indie-hackers-preview-view"),
+  indieHackersPreviewPanel: document.querySelector("#indie-hackers-preview-panel"),
+  indieHackersPreviewStatus: document.querySelector("#indie-hackers-preview-status"),
+  indieHackersPreviewIssues: document.querySelector("#indie-hackers-preview-issues"),
+  indieHackersPreviewFrame: document.querySelector("#indie-hackers-preview-frame"),
+  indieHackersPreviewSurface: document.querySelector("#indie-hackers-preview-surface"),
+  indieHackersPreviewEmpty: document.querySelector("#indie-hackers-preview-empty"),
+  indieHackersPreviewNotice: document.querySelector("#indie-hackers-preview-notice"),
+  indieHackersPreviewDesktop: document.querySelector("#indie-hackers-preview-desktop"),
+  indieHackersPreviewMobile: document.querySelector("#indie-hackers-preview-mobile"),
+  devPreviewWorkbench: document.querySelector("#dev-preview-workbench"), devEditorView: document.querySelector("#dev-editor-view"), devPreviewView: document.querySelector("#dev-preview-view"), devPreviewPanel: document.querySelector("#dev-preview-panel"), devTitleInput: document.querySelector("#dev-title-input"), devBodyInput: document.querySelector("#dev-body-input"), devTagsInput: document.querySelector("#dev-tags-input"), devDisclosureInput: document.querySelector("#dev-disclosure-input"), devPreviewStatus: document.querySelector("#dev-preview-status"), devPreviewIssues: document.querySelector("#dev-preview-issues"), devPreviewSurface: document.querySelector("#dev-preview-surface"), devPreviewNotice: document.querySelector("#dev-preview-notice"),
+  okkyPreviewWorkbench: document.querySelector("#okky-preview-workbench"), okkyEditorView: document.querySelector("#okky-editor-view"), okkyPreviewView: document.querySelector("#okky-preview-view"), okkyPreviewPanel: document.querySelector("#okky-preview-panel"), okkyContextInput: document.querySelector("#okky-context-input"), okkyPreviewStatus: document.querySelector("#okky-preview-status"), okkyPreviewIssues: document.querySelector("#okky-preview-issues"), okkyPreviewFrame: document.querySelector("#okky-preview-frame"), okkyPreviewSurface: document.querySelector("#okky-preview-surface"), okkyPreviewEmpty: document.querySelector("#okky-preview-empty"), okkyPreviewNotice: document.querySelector("#okky-preview-notice"), okkyPreviewDesktop: document.querySelector("#okky-preview-desktop"), okkyPreviewMobile: document.querySelector("#okky-preview-mobile"),
+  geeknewsPreviewWorkbench: document.querySelector("#geeknews-preview-workbench"), geeknewsEditorView: document.querySelector("#geeknews-editor-view"), geeknewsPreviewView: document.querySelector("#geeknews-preview-view"), geeknewsPreviewPanel: document.querySelector("#geeknews-preview-panel"), geeknewsPreviewStatus: document.querySelector("#geeknews-preview-status"), geeknewsPreviewIssues: document.querySelector("#geeknews-preview-issues"), geeknewsPreviewFrame: document.querySelector("#geeknews-preview-frame"), geeknewsPreviewSurface: document.querySelector("#geeknews-preview-surface"), geeknewsPreviewEmpty: document.querySelector("#geeknews-preview-empty"), geeknewsPreviewNotice: document.querySelector("#geeknews-preview-notice"), geeknewsPreviewDesktop: document.querySelector("#geeknews-preview-desktop"), geeknewsPreviewMobile: document.querySelector("#geeknews-preview-mobile"),
+  showHnPreviewWorkbench: document.querySelector("#show-hn-preview-workbench"), showHnAuthorView: document.querySelector("#show-hn-author-view"), showHnPreviewView: document.querySelector("#show-hn-preview-view"), showHnAuthorPanel: document.querySelector("#show-hn-author-panel"), showHnPreviewPanel: document.querySelector("#show-hn-preview-panel"), showHnBriefForm: document.querySelector("#show-hn-brief-form"), showHnTitleInput: document.querySelector("#show-hn-title-input"), showHnBodyInput: document.querySelector("#show-hn-body-input"), showHnSourceInput: document.querySelector("#show-hn-source-input"), showHnDemoInput: document.querySelector("#show-hn-demo-input"), showHnHandwrittenInput: document.querySelector("#show-hn-handwritten-input"), showHnOwnershipInput: document.querySelector("#show-hn-ownership-input"), showHnReset: document.querySelector("#show-hn-preview-reset"), showHnPreviewStatus: document.querySelector("#show-hn-preview-status"), showHnPreviewIssues: document.querySelector("#show-hn-preview-issues"), showHnPreviewFrame: document.querySelector("#show-hn-preview-frame"), showHnPreviewSurface: document.querySelector("#show-hn-preview-surface"), showHnPreviewNotice: document.querySelector("#show-hn-preview-notice"), showHnPreviewDesktop: document.querySelector("#show-hn-preview-desktop"), showHnPreviewMobile: document.querySelector("#show-hn-preview-mobile"),
+  tiktokPreviewLab: document.querySelector("#tiktok-preview-lab"),
+  tiktokBriefForm: document.querySelector("#tiktok-brief-form"),
+  tiktokCaptionInput: document.querySelector("#tiktok-caption-input"),
+  tiktokCoverInput: document.querySelector("#tiktok-cover-input"),
+  tiktokVisibilityInput: document.querySelector("#tiktok-visibility-input"),
+  tiktokAssetReviewedInput: document.querySelector("#tiktok-asset-reviewed-input"),
+  tiktokWatermarkReviewedInput: document.querySelector("#tiktok-watermark-reviewed-input"),
+  tiktokPreviewReset: document.querySelector("#tiktok-preview-reset"),
+  tiktokPreviewStatus: document.querySelector("#tiktok-preview-status"),
+  tiktokPreviewIssues: document.querySelector("#tiktok-preview-issues"),
+  tiktokPreviewFrame: document.querySelector("#tiktok-preview-frame"),
+  tiktokPreviewSurface: document.querySelector("#tiktok-preview-surface"),
+  tiktokPreviewNotice: document.querySelector("#tiktok-preview-notice"),
+  tiktokPreviewDesktop: document.querySelector("#tiktok-preview-desktop"),
+  tiktokPreviewMobile: document.querySelector("#tiktok-preview-mobile"),
+  discordPreviewLab: document.querySelector("#discord-preview-lab"),
+  discordBriefForm: document.querySelector("#discord-brief-form"),
+  discordTargetAliasInput: document.querySelector("#discord-target-alias-input"),
+  discordMessageInput: document.querySelector("#discord-message-input"),
+  discordEmbedTitleInput: document.querySelector("#discord-embed-title-input"),
+  discordEmbedDescriptionInput: document.querySelector("#discord-embed-description-input"),
+  discordEmbedUrlInput: document.querySelector("#discord-embed-url-input"),
+  discordMentionReviewedInput: document.querySelector("#discord-mention-reviewed-input"),
+  discordPreviewReset: document.querySelector("#discord-preview-reset"),
+  discordPreviewStatus: document.querySelector("#discord-preview-status"),
+  discordPreviewIssues: document.querySelector("#discord-preview-issues"),
+  discordPreviewFrame: document.querySelector("#discord-preview-frame"),
+  discordPreviewSurface: document.querySelector("#discord-preview-surface"),
+  discordPreviewNotice: document.querySelector("#discord-preview-notice"),
+  discordPreviewDesktop: document.querySelector("#discord-preview-desktop"),
+  discordPreviewMobile: document.querySelector("#discord-preview-mobile"),
+  blueskyPreviewLab: document.querySelector("#bluesky-preview-lab"),
+  blueskyBriefForm: document.querySelector("#bluesky-brief-form"),
+  blueskyLocaleInput: document.querySelector("#bluesky-locale-input"),
+  blueskyBodyInput: document.querySelector("#bluesky-body-input"),
+  blueskyFacetsReviewedInput: document.querySelector("#bluesky-facets-reviewed-input"),
+  blueskyPreviewReset: document.querySelector("#bluesky-preview-reset"),
+  blueskyPreviewStatus: document.querySelector("#bluesky-preview-status"),
+  blueskyPreviewIssues: document.querySelector("#bluesky-preview-issues"),
+  blueskyPreviewFrame: document.querySelector("#bluesky-preview-frame"),
+  blueskyPreviewSurface: document.querySelector("#bluesky-preview-surface"),
+  blueskyPreviewNotice: document.querySelector("#bluesky-preview-notice"),
+  blueskyPreviewDesktop: document.querySelector("#bluesky-preview-desktop"),
+  blueskyPreviewMobile: document.querySelector("#bluesky-preview-mobile"),
+  mastodonPreviewLab: document.querySelector("#mastodon-preview-lab"),
+  mastodonBriefForm: document.querySelector("#mastodon-brief-form"),
+  mastodonInstanceAliasInput: document.querySelector("#mastodon-instance-alias-input"),
+  mastodonCharacterLimitInput: document.querySelector("#mastodon-character-limit-input"),
+  mastodonUrlReservedInput: document.querySelector("#mastodon-url-reserved-input"),
+  mastodonVisibilityInput: document.querySelector("#mastodon-visibility-input"),
+  mastodonContentWarningInput: document.querySelector("#mastodon-content-warning-input"),
+  mastodonBodyInput: document.querySelector("#mastodon-body-input"),
+  mastodonRulesReviewedInput: document.querySelector("#mastodon-rules-reviewed-input"),
+  mastodonContentWarningReviewedInput: document.querySelector("#mastodon-content-warning-reviewed-input"),
+  mastodonPreviewReset: document.querySelector("#mastodon-preview-reset"),
+  mastodonPreviewStatus: document.querySelector("#mastodon-preview-status"),
+  mastodonPreviewIssues: document.querySelector("#mastodon-preview-issues"),
+  mastodonPreviewFrame: document.querySelector("#mastodon-preview-frame"),
+  mastodonPreviewSurface: document.querySelector("#mastodon-preview-surface"),
+  mastodonPreviewNotice: document.querySelector("#mastodon-preview-notice"),
+  mastodonPreviewDesktop: document.querySelector("#mastodon-preview-desktop"),
+  mastodonPreviewMobile: document.querySelector("#mastodon-preview-mobile"),
   compareEditors: document.querySelector("#compare-editors"),
   emptyTranslation: document.querySelector("#empty-translation"),
   sourceLocaleLabel: document.querySelector("#source-locale-label"),
@@ -304,8 +521,58 @@ const state = {
   baseline: null,
   preflight: createDefaultPreflight(),
   baselineLoading: false,
+  xReviewMode: "editor",
+  xReviewViewport: "desktop",
   threadsPreviewMode: "editor",
   threadsPreviewViewport: "desktop",
+  linkedinPreviewMode: "editor",
+  linkedinPreviewViewport: "desktop",
+  facebookPreviewMode: "editor",
+  facebookPreviewViewport: "desktop",
+  instagramPreviewMode: "editor",
+  instagramPreviewViewport: "desktop",
+  shortsPreviewMode: "editor",
+  shortsPreviewViewport: "desktop",
+  shortsPreviewShotIndex: 0,
+  productHuntPreviewMode: "editor",
+  productHuntPreviewViewport: "desktop",
+  peerlistPreviewMode: "editor",
+  peerlistPreviewViewport: "desktop",
+  disquietPreviewMode: "editor",
+  disquietPreviewViewport: "desktop",
+  redditPreviewMode: "editor",
+  redditPreviewViewport: "desktop",
+  indieHackersPreviewMode: "editor",
+  indieHackersPreviewViewport: "desktop",
+  devPreviewMode: "editor", devBrief: { title: "", body: "", tags: "", disclosure: "" },
+  okkyPreviewMode: "editor", okkyPreviewViewport: "desktop", okkyBrief: { context: "unconfirmed" },
+  geeknewsPreviewMode: "editor", geeknewsPreviewViewport: "desktop",
+  // Show HN text must be typed by the author without AI generation, translation,
+  // or editing. Keep this manual session state out of workspace persistence,
+  // approval, copy, dry-run, and all generated channel documents.
+  showHnPreviewMode: "author", showHnPreviewViewport: "desktop",
+  showHnBrief: { title: "", body: "", sourceUrl: "", demoUrl: "", handwrittenConfirmed: false, ownershipConfirmed: false },
+  // Reddit is reference-only. This direct author draft stays in memory for
+  // this browser session and is deliberately absent from snapshots, copy,
+  // approval, dry-run, and persisted workspace data.
+  redditBrief: { title: "", body: "", postType: "unconfirmed", nsfw: false, spoiler: false },
+  // TikTok is not a generated channel. This brief stays only in memory for
+  // the current browser session and is deliberately absent from workspace
+  // snapshots and all approval/copy/dry-run paths.
+  tiktokBrief: { caption: "", cover: "", visibility: "unconfirmed", assetReviewed: false, watermarkReviewed: false },
+  tiktokPreviewViewport: "desktop",
+  // Discord is not a generated channel. Keep the manual brief in memory only;
+  // it cannot enter workspace snapshots, credentials, approval, copy or dry-run.
+  discordBrief: { targetAlias: "", message: "", embedTitle: "", embedDescription: "", embedUrl: "", mentionReviewed: false },
+  discordPreviewViewport: "desktop",
+  // Bluesky is not a generated channel. This manual brief remains session-only
+  // and cannot enter workspace snapshots, account data, approval or dry-runs.
+  blueskyBrief: { locale: "unconfirmed", body: "", facetsReviewed: false },
+  blueskyPreviewViewport: "desktop",
+  // Mastodon uses a separate session-only brief. Instance limits are only
+  // user-entered local notes and never trigger an instance request or write.
+  mastodonBrief: { instanceAlias: "", characterLimit: "", urlReservedCharacters: "", visibility: "unconfirmed", contentWarning: "", body: "", rulesReviewed: false, contentWarningReviewed: false },
+  mastodonPreviewViewport: "desktop",
   dirty: false,
   persisted: false,
 };
@@ -725,7 +992,23 @@ function updatePlatformReadiness(mutator, { render = false } = {}) {
   }
   if (render) renderPlatformReadiness();
   renderDraftValidation();
-  if (!render) renderThreadsPreview();
+  if (!render) {
+    renderThreadsPreview();
+    renderXReview();
+    renderLinkedInPreview();
+    renderFacebookPreview();
+    renderInstagramPreview();
+    renderShortsPreview();
+    renderProductHuntPreview();
+    renderPeerlistPreview();
+    renderDisquietPreview();
+    renderRedditPreview();
+    renderIndieHackersPreview();
+    renderDevPreview();
+    renderOkkyPreview();
+    renderGeekNewsPreview();
+    renderShowHnPreview();
+  }
   persistWorkspace();
 }
 
@@ -849,6 +1132,15 @@ function updateManualOperationInput(key, value) {
     operationInputs: { ...currentOperationInputs(), [key]: value },
   };
   renderDraftValidation();
+  renderProductHuntPreview();
+  renderPeerlistPreview();
+  renderDisquietPreview();
+  renderRedditPreview();
+  renderIndieHackersPreview();
+  renderDevPreview();
+  renderOkkyPreview();
+  renderGeekNewsPreview();
+  renderShowHnPreview();
   persistWorkspace();
 }
 
@@ -1052,6 +1344,20 @@ function renderPlatformReadiness() {
     elements.readinessDryRunButton.disabled = true;
     renderDryRunReceipt();
     renderThreadsPreview();
+    renderXReview();
+    renderLinkedInPreview();
+    renderFacebookPreview();
+    renderInstagramPreview();
+    renderShortsPreview();
+    renderProductHuntPreview();
+    renderPeerlistPreview();
+    renderDisquietPreview();
+    renderRedditPreview();
+    renderIndieHackersPreview();
+    renderDevPreview();
+    renderOkkyPreview();
+    renderGeekNewsPreview();
+    renderShowHnPreview();
     return;
   }
   const record = assessment.readiness;
@@ -1112,6 +1418,20 @@ function renderPlatformReadiness() {
     || currentApprovalAssessment().status !== "approved";
   renderDryRunReceipt();
   renderThreadsPreview();
+  renderXReview();
+  renderLinkedInPreview();
+  renderFacebookPreview();
+  renderInstagramPreview();
+  renderShortsPreview();
+  renderProductHuntPreview();
+  renderPeerlistPreview();
+  renderDisquietPreview();
+  renderRedditPreview();
+  renderIndieHackersPreview();
+  renderDevPreview();
+  renderOkkyPreview();
+  renderGeekNewsPreview();
+  renderShowHnPreview();
 }
 
 function currentApprovalContext() {
@@ -1286,6 +1606,7 @@ function renderDraftValidation() {
   elements.copyButton.disabled = !canCopy;
   elements.downloadButton.disabled = !canCopy;
   elements.copyButton.title = block || "현재 게시 필드만 복사합니다.";
+  renderCurrentValidationIssues();
 }
 
 function setFeedback(message = "", tone = "neutral") {
@@ -1781,7 +2102,12 @@ function renderConstraintSummary() {
 function renderAuthorInputs() {
   const channel = state.activeDraft;
   const mode = supportMode(channel);
-  const defs = authorInputDefs(channel);
+  const platform = platformForChannel(channel);
+  const manualPlatform = platform && ["manual_only", "draft_only"].includes(platformReadinessSchema(platform).automationMode);
+  // Manual-only/draft-only platform operation checks have one authoritative
+  // home in the readiness panel. Keeping them out of this editor avoids two
+  // controls mutating the same local operation record.
+  const defs = authorInputDefs(channel).filter((def) => !manualPlatform || def.scope !== "operations");
   elements.authorInputs.hidden = mode === "manual_only";
   elements.authorInputs.replaceChildren();
   if (mode === "manual_only") return;
@@ -1876,8 +2202,9 @@ function renderAuthorInputs() {
   }
 
   const explicitOperationKeys = new Set(defs.filter((def) => def.scope === "operations").map((def) => def.key));
-  const genericGates = (channelProfile(channel)?.prepublishGates ?? [])
-    .filter((gate) => !explicitOperationKeys.has(gate.key));
+  const genericGates = manualPlatform
+    ? []
+    : (channelProfile(channel)?.prepublishGates ?? []).filter((gate) => !explicitOperationKeys.has(gate.key));
   if (genericGates.length > 0) {
     const gateHeading = document.createElement("p");
     gateHeading.className = "section-label";
@@ -1922,6 +2249,30 @@ function renderValidationIssues(issues = []) {
   }
 }
 
+// Keep the issue list in sync when a typed channel/operation field changes.
+// Previously it was refreshed only by renderActiveDraft(), so the visible
+// checklist could still say "input required" after a user had filled it.
+function renderCurrentValidationIssues() {
+  const translation = state.activeLocale === SOURCE_LOCALE ? null : localeEntry(state.activeLocale);
+  const stateForIssues = displayCompletionState(activeDocument(), {
+    locale: state.activeLocale,
+    stale: Boolean(translation?.stale),
+    missingTranslation: state.activeLocale !== SOURCE_LOCALE && !translation,
+    validationOk: validatePublish(state.activeDraft, activePublishFields() ?? {}, {
+      facts: translationFacts(), campaignBrief: currentCampaignBrief(),
+    }).ok,
+    authorInputs: currentAuthorInputs(),
+    operationInputs: currentOperationInputs(),
+    campaignBrief: currentCampaignBrief(),
+    approvalStatus: currentApprovalStatus(),
+  });
+  renderValidationIssues([
+    ...(translation?.validation?.issues ?? []),
+    ...stateForIssues.contentInputIssues.map((issue) => ({ group: "policy", message: issue.message })),
+    ...stateForIssues.operationIssues.map((issue) => ({ group: "prepublish", message: issue.message })),
+  ]);
+}
+
 function renderTranslateControls({ renderInputs = true } = {}) {
   const document = activeDocument();
   const mode = supportMode(state.activeDraft);
@@ -1959,6 +2310,163 @@ function renderTranslateControls({ renderInputs = true } = {}) {
   renderProviderControls();
   renderConstraintSummary();
   if (renderInputs) renderAuthorInputs();
+}
+
+function currentXReviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord();
+  return createXPreviewModel({
+    channel: state.activeDraft,
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+  });
+}
+
+function appendXReviewContext(label, value) {
+  const row = document.createElement("div");
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const detail = document.createElement("dd");
+  detail.textContent = value;
+  row.append(term, detail);
+  elements.xReviewContext.append(row);
+}
+
+function appendXReviewText(element, value) {
+  const source = String(value ?? "");
+  let cursor = 0;
+  for (const match of source.matchAll(X_PREVIEW_URL_PATTERN)) {
+    const index = match.index ?? cursor;
+    if (index > cursor) element.append(document.createTextNode(source.slice(cursor, index)));
+    const url = document.createElement("span");
+    url.className = "x-draft-url";
+    url.textContent = match[0];
+    element.append(url);
+    cursor = index + match[0].length;
+  }
+  if (cursor < source.length || source.length === 0) element.append(document.createTextNode(source.slice(cursor)));
+}
+
+function appendXReviewCard(cardModel, identity) {
+  const item = document.createElement("li");
+  item.className = "x-review-card";
+  item.dataset.state = cardModel.overLimit ? "over-limit" : "within-limit";
+  item.dataset.kind = cardModel.kind;
+  item.dataset.last = String(cardModel.index === cardModel.total);
+
+  const axis = document.createElement("div");
+  axis.className = "x-draft-axis";
+  axis.setAttribute("aria-hidden", "true");
+  const identicon = document.createElement("span");
+  identicon.className = "x-draft-identicon";
+  identicon.textContent = identity.initials;
+  axis.append(identicon);
+  if (cardModel.kind === "thread_segment" && cardModel.index < cardModel.total) {
+    const connector = document.createElement("span");
+    connector.className = "x-draft-connector";
+    axis.append(connector);
+  }
+
+  const post = document.createElement("article");
+  post.className = "x-draft-post";
+  const byline = document.createElement("header");
+  byline.className = "x-draft-byline";
+  const account = document.createElement("div");
+  account.className = "x-draft-account";
+  const accountLabel = document.createElement("strong");
+  accountLabel.textContent = identity.known ? "게시 대상 계정" : "계정 정보 미확인";
+  const handle = document.createElement("span");
+  handle.className = "x-draft-handle";
+  handle.textContent = identity.handle;
+  const draftLabel = document.createElement("span");
+  draftLabel.className = "x-draft-label";
+  draftLabel.textContent = cardModel.draftLabel;
+  account.append(accountLabel, handle, draftLabel);
+  const overflow = document.createElement("span");
+  overflow.className = "x-draft-overflow";
+  overflow.textContent = "•••";
+  overflow.setAttribute("aria-hidden", "true");
+  byline.append(account, overflow);
+
+  const text = document.createElement("p");
+  text.className = "x-review-text";
+  text.dir = "auto";
+  appendXReviewText(text, cardModel.text);
+  if (!cardModel.text) text.dataset.empty = "true";
+
+  const diagnostics = document.createElement("p");
+  diagnostics.className = "x-review-diagnostics";
+  diagnostics.textContent = cardModel.overLimit
+    ? `로컬 가중 문자 추정 ${cardModel.weightedLength.toLocaleString("ko-KR")} / ${cardModel.limit} · ${Math.abs(cardModel.remaining).toLocaleString("ko-KR")} 초과 · URL ${cardModel.urlCount}개`
+    : `로컬 가중 문자 추정 ${cardModel.weightedLength.toLocaleString("ko-KR")} / ${cardModel.limit} · ${cardModel.remaining.toLocaleString("ko-KR")} 여유 · URL ${cardModel.urlCount}개`;
+
+  const actionLane = document.createElement("div");
+  actionLane.className = "x-draft-action-lane";
+  actionLane.setAttribute("aria-hidden", "true");
+  for (const iconName of ["bubble", "arrows", "heart", "upload"]) {
+    const icon = document.createElement("span");
+    icon.className = `x-draft-action x-draft-action-${iconName}`;
+    actionLane.append(icon);
+  }
+  post.append(byline, text, diagnostics, actionLane);
+  item.append(axis, post);
+  elements.xReviewCards.append(item);
+}
+
+function renderXReview() {
+  if (!elements.xReviewWorkbench) return;
+  const isXReview = state.phase === "success" && X_REVIEW_KEYS.has(state.activeDraft);
+  elements.xReviewWorkbench.hidden = !isXReview;
+  if (!isXReview) {
+    elements.xReviewPanel.hidden = true;
+    return;
+  }
+
+  const reviewMode = state.xReviewMode === "review";
+  elements.xEditorView.setAttribute("aria-selected", String(!reviewMode));
+  elements.xEditorView.tabIndex = reviewMode ? -1 : 0;
+  elements.xReviewView.setAttribute("aria-selected", String(reviewMode));
+  elements.xReviewView.tabIndex = reviewMode ? 0 : -1;
+  elements.compareEditors.hidden = reviewMode;
+  elements.editorHelp.hidden = reviewMode;
+  elements.xReviewPanel.hidden = !reviewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "x-editor-view");
+
+  const model = currentXReviewModel();
+  elements.xReviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.xReviewStatus.dataset.state = model.status.key;
+  elements.xReviewFrame.dataset.viewport = state.xReviewViewport;
+  elements.xReviewDesktop.setAttribute("aria-pressed", String(state.xReviewViewport === "desktop"));
+  elements.xReviewMobile.setAttribute("aria-pressed", String(state.xReviewViewport === "mobile"));
+  elements.xReviewContext.replaceChildren();
+  appendXReviewContext("형식", model.kind === "thread" ? "연속 원고" : "단일 원고");
+  appendXReviewContext("언어", localeLabel(model.locale));
+  appendXReviewContext("대상", model.identity.handle);
+  elements.xReviewIssues.hidden = model.content.issues.length === 0;
+  elements.xReviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.xReviewIssues.append(row);
+  }
+  elements.xReviewCards.replaceChildren();
+  elements.xReviewEmpty.hidden = model.cards.length > 0;
+  elements.xReviewEmpty.textContent = model.emptyMessage;
+  for (const card of model.cards) appendXReviewCard(card, model.identity);
+  elements.xReviewNotice.textContent = `${model.notice} 외부 X 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function selectXReviewMode(mode, { focus = false } = {}) {
+  if (!X_REVIEW_KEYS.has(state.activeDraft)) return;
+  state.xReviewMode = mode === "review" ? "review" : "editor";
+  renderXReview();
+  if (focus) (state.xReviewMode === "review" ? elements.xReviewView : elements.xEditorView).focus();
 }
 
 function currentThreadsPreviewModel() {
@@ -2068,6 +2576,2032 @@ function selectThreadsPreviewMode(mode, { focus = false } = {}) {
   if (focus) (state.threadsPreviewMode === "preview" ? elements.threadsPreviewView : elements.threadsEditorView).focus();
 }
 
+function currentLinkedInPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("linkedin");
+  return createLinkedInPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+  });
+}
+
+function appendLinkedInPreviewPost(model) {
+  const post = document.createElement("article");
+  post.className = "linkedin-draft-post";
+  post.dataset.state = model.content.overLimit ? "over-limit" : "within-limit";
+
+  const byline = document.createElement("header");
+  byline.className = "linkedin-draft-byline";
+  const monogram = document.createElement("span");
+  monogram.className = "linkedin-draft-monogram";
+  monogram.textContent = model.identity.initials;
+  monogram.setAttribute("aria-hidden", "true");
+  const identity = document.createElement("div");
+  identity.className = "linkedin-draft-identity";
+  const name = document.createElement("strong");
+  name.textContent = model.identity.label;
+  const handle = document.createElement("span");
+  handle.textContent = model.identity.handle;
+  const meta = document.createElement("span");
+  meta.textContent = `초안 · 게시 전 · ${localeLabel(model.locale)}`;
+  identity.append(name, handle, meta);
+  const overflow = document.createElement("span");
+  overflow.className = "linkedin-draft-overflow";
+  overflow.textContent = "•••";
+  overflow.setAttribute("aria-hidden", "true");
+  byline.append(monogram, identity, overflow);
+
+  const text = document.createElement("p");
+  text.className = "linkedin-draft-text";
+  text.dir = "auto";
+  text.textContent = model.content.body;
+  if (!model.content.body) {
+    text.dataset.empty = "true";
+    text.textContent = "본문을 입력하면 LinkedIn 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+  }
+
+  const diagnostics = document.createElement("div");
+  diagnostics.className = "linkedin-draft-diagnostics";
+  const length = document.createElement("span");
+  length.textContent = model.content.overLimit
+    ? `${model.content.characterCount.toLocaleString("ko-KR")} / ${model.content.limit.toLocaleString("ko-KR")}자 · ${Math.abs(model.content.remaining).toLocaleString("ko-KR")}자 초과`
+    : `${model.content.characterCount.toLocaleString("ko-KR")} / ${model.content.limit.toLocaleString("ko-KR")}자 · ${model.content.remaining.toLocaleString("ko-KR")}자 여유`;
+  const audience = document.createElement("span");
+  audience.textContent = model.settings.audience;
+  const comments = document.createElement("span");
+  comments.textContent = model.settings.comments;
+  diagnostics.append(length, audience, comments);
+
+  const actionLane = document.createElement("div");
+  actionLane.className = "linkedin-draft-action-lane";
+  actionLane.setAttribute("aria-hidden", "true");
+  for (const label of ["반응", "댓글", "공유"]) {
+    const action = document.createElement("span");
+    action.textContent = label;
+    actionLane.append(action);
+  }
+  post.append(byline, text, diagnostics, actionLane);
+  elements.linkedinPreviewPost.append(post);
+}
+
+function renderLinkedInPreview() {
+  if (!elements.linkedinPreviewWorkbench) return;
+  const spec = previewSpecForChannel("linkedin");
+  const isLinkedIn = state.phase === "success"
+    && state.activeDraft === "linkedin"
+    && spec?.inputMode === "publish_fields";
+  elements.linkedinPreviewWorkbench.hidden = !isLinkedIn;
+  if (!isLinkedIn) {
+    elements.linkedinPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.linkedinPreviewMode === "preview";
+  elements.linkedinEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.linkedinEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.linkedinPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.linkedinPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.linkedinPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "linkedin-editor-view");
+
+  const model = currentLinkedInPreviewModel();
+  elements.linkedinPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.linkedinPreviewStatus.dataset.state = model.status.key;
+  elements.linkedinPreviewFrame.dataset.viewport = state.linkedinPreviewViewport;
+  elements.linkedinPreviewDesktop.setAttribute("aria-pressed", String(state.linkedinPreviewViewport === "desktop"));
+  elements.linkedinPreviewMobile.setAttribute("aria-pressed", String(state.linkedinPreviewViewport === "mobile"));
+  elements.linkedinPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.linkedinPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.linkedinPreviewIssues.append(row);
+  }
+  elements.linkedinPreviewPost.replaceChildren();
+  elements.linkedinPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.linkedinPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendLinkedInPreviewPost(model);
+  elements.linkedinPreviewNotice.textContent = `${model.notice} 외부 LinkedIn 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function selectLinkedInPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "linkedin") return;
+  state.linkedinPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderLinkedInPreview();
+  if (focus) (state.linkedinPreviewMode === "preview" ? elements.linkedinPreviewView : elements.linkedinEditorView).focus();
+}
+
+function currentFacebookPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("facebook");
+  return createFacebookPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+    operationInputs: currentOperationInputs("facebook"),
+    asset: readiness?.asset ?? null,
+  });
+}
+
+function appendFacebookReelsPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "facebook-reels-preview";
+
+  const stage = document.createElement("div");
+  stage.className = "facebook-reels-stage";
+  const topLine = document.createElement("div");
+  topLine.className = "facebook-reels-topline";
+  const account = document.createElement("span");
+  account.textContent = model.identity.handle;
+  const label = document.createElement("span");
+  label.textContent = "Reels · local draft";
+  topLine.append(account, label);
+
+  const media = document.createElement("div");
+  media.className = "facebook-reels-media";
+  const mediaMark = document.createElement("span");
+  mediaMark.className = "facebook-reels-media-mark";
+  mediaMark.textContent = "ORIGINAL";
+  const mediaState = document.createElement("strong");
+  mediaState.textContent = model.reels.label;
+  const mediaDescription = document.createElement("span");
+  mediaDescription.textContent = model.reels.description;
+  media.append(mediaMark, mediaState, mediaDescription);
+
+  const caption = document.createElement("p");
+  caption.className = "facebook-reels-caption";
+  caption.dir = "auto";
+  caption.textContent = model.content.reelsCaption || "Reels 캡션을 입력하면 세로 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.reelsCaption) caption.dataset.empty = "true";
+
+  const actionLane = document.createElement("p");
+  actionLane.className = "facebook-reels-action-lane";
+  actionLane.textContent = "반응   댓글   공유";
+  actionLane.setAttribute("aria-hidden", "true");
+  stage.append(topLine, media, caption, actionLane);
+  preview.append(stage);
+  elements.facebookPreviewSurface.append(preview);
+}
+
+function appendFacebookGroupPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "facebook-group-preview";
+
+  const header = document.createElement("header");
+  header.className = "facebook-group-header";
+  const mark = document.createElement("span");
+  mark.className = "facebook-group-mark";
+  mark.textContent = model.group.groupName.slice(0, 1).toUpperCase() || "G";
+  mark.setAttribute("aria-hidden", "true");
+  const context = document.createElement("div");
+  context.className = "facebook-group-context";
+  const name = document.createElement("strong");
+  name.textContent = model.group.groupName;
+  const metadata = document.createElement("span");
+  metadata.textContent = `그룹 원고 검토 · ${model.group.locale}`;
+  context.append(name, metadata);
+  const account = document.createElement("span");
+  account.className = "facebook-group-account";
+  account.textContent = model.identity.handle;
+  header.append(mark, context, account);
+  preview.append(header);
+
+  if (model.group.key !== "ready") {
+    const gate = document.createElement("p");
+    gate.className = "facebook-group-gate";
+    gate.textContent = model.group.description;
+    preview.append(gate);
+  } else {
+    const body = document.createElement("p");
+    body.className = "facebook-group-body";
+    body.dir = "auto";
+    body.textContent = model.content.groupBody || "그룹 본문을 입력하면 이 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+    if (!model.content.groupBody) body.dataset.empty = "true";
+    const actionLane = document.createElement("p");
+    actionLane.className = "facebook-group-action-lane";
+    actionLane.textContent = "반응   댓글   공유";
+    actionLane.setAttribute("aria-hidden", "true");
+    preview.append(body, actionLane);
+  }
+  elements.facebookPreviewSurface.append(preview);
+}
+
+function renderFacebookPreview() {
+  if (!elements.facebookPreviewWorkbench) return;
+  const spec = previewSpecForChannel("facebook");
+  const isFacebook = state.phase === "success"
+    && state.activeDraft === "facebook"
+    && spec?.inputMode === "publish_fields";
+  elements.facebookPreviewWorkbench.hidden = !isFacebook;
+  if (!isFacebook) {
+    elements.facebookPreviewPanel.hidden = true;
+    return;
+  }
+
+  const mode = ["reels", "group"].includes(state.facebookPreviewMode) ? state.facebookPreviewMode : "editor";
+  const previewMode = mode !== "editor";
+  const tabModes = [
+    [elements.facebookEditorView, "editor"],
+    [elements.facebookReelsView, "reels"],
+    [elements.facebookGroupView, "group"],
+  ];
+  for (const [button, tabMode] of tabModes) {
+    const active = mode === tabMode;
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.facebookPreviewPanel.hidden = !previewMode;
+  elements.facebookPreviewPanel.setAttribute("aria-labelledby", mode === "group" ? "facebook-group-view" : "facebook-reels-view");
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "facebook-editor-view");
+
+  const model = currentFacebookPreviewModel();
+  elements.facebookPreviewTitle.textContent = mode === "group"
+    ? "Facebook 그룹 게시 전 미리보기"
+    : "Facebook Reels 게시 전 미리보기";
+  elements.facebookPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.facebookPreviewStatus.dataset.state = model.status.key;
+  elements.facebookPreviewFrame.dataset.viewport = state.facebookPreviewViewport;
+  elements.facebookPreviewFrame.dataset.mode = mode;
+  elements.facebookPreviewDesktop.setAttribute("aria-pressed", String(state.facebookPreviewViewport === "desktop"));
+  elements.facebookPreviewMobile.setAttribute("aria-pressed", String(state.facebookPreviewViewport === "mobile"));
+  const surfaceIssues = mode === "group" ? model.group.issues : model.reels.issues;
+  elements.facebookPreviewIssues.hidden = surfaceIssues.length === 0;
+  elements.facebookPreviewIssues.replaceChildren();
+  for (const issue of surfaceIssues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.facebookPreviewIssues.append(row);
+  }
+  elements.facebookPreviewSurface.replaceChildren();
+  elements.facebookPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.facebookPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") {
+    if (mode === "group") appendFacebookGroupPreview(model);
+    else appendFacebookReelsPreview(model);
+  }
+  elements.facebookPreviewNotice.textContent = `${model.notice} 외부 Facebook 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function selectFacebookPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "facebook") return;
+  state.facebookPreviewMode = ["reels", "group"].includes(mode) ? mode : "editor";
+  renderFacebookPreview();
+  if (!focus) return;
+  const button = state.facebookPreviewMode === "reels"
+    ? elements.facebookReelsView
+    : state.facebookPreviewMode === "group"
+      ? elements.facebookGroupView
+      : elements.facebookEditorView;
+  button.focus();
+}
+
+function currentInstagramPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("instagram");
+  return createInstagramPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+    operationInputs: currentOperationInputs("instagram"),
+    asset: readiness?.asset ?? null,
+  });
+}
+
+function appendInstagramPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "instagram-reels-preview";
+
+  const stage = document.createElement("div");
+  stage.className = "instagram-reels-stage";
+  const topLine = document.createElement("div");
+  topLine.className = "instagram-reels-topline";
+  const account = document.createElement("span");
+  account.textContent = model.identity.handle;
+  const label = document.createElement("span");
+  label.textContent = "LOCAL REEL REVIEW";
+  topLine.append(account, label);
+
+  const mediaCheck = document.createElement("div");
+  mediaCheck.className = "instagram-reels-media-check";
+  const mediaMark = document.createElement("span");
+  mediaMark.textContent = "MEDIA CHECK";
+  const mediaState = document.createElement("strong");
+  mediaState.textContent = model.media.label;
+  const mediaDescription = document.createElement("span");
+  mediaDescription.textContent = model.media.description;
+  mediaCheck.append(mediaMark, mediaState, mediaDescription);
+
+  const cover = document.createElement("p");
+  cover.className = "instagram-reels-cover";
+  cover.dir = "auto";
+  cover.textContent = model.content.cover || "표지 문구를 입력하면 9:16 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.cover) cover.dataset.empty = "true";
+
+  const coverCount = document.createElement("span");
+  coverCount.className = "instagram-reels-cover-count";
+  coverCount.textContent = `${model.content.coverLength} / ${model.content.coverLimit}자 · 표지`;
+  stage.append(topLine, mediaCheck, cover, coverCount);
+
+  const captionSection = document.createElement("section");
+  captionSection.className = "instagram-reels-caption-section";
+  const captionLabel = document.createElement("span");
+  captionLabel.className = "instagram-reels-caption-label";
+  captionLabel.textContent = `CAPTION · ${localeLabel(model.locale)}`;
+  const caption = document.createElement("p");
+  caption.className = "instagram-reels-caption";
+  caption.dir = "auto";
+  caption.textContent = model.content.caption || "캡션을 입력하면 게시 전 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.caption) caption.dataset.empty = "true";
+  captionSection.append(captionLabel, caption);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "instagram-reels-readiness";
+  for (const [labelText, value] of [
+    ["ASSET", model.media],
+    ["COVER", model.coverReadiness],
+    ["LINK", model.profile],
+  ]) {
+    const row = document.createElement("div");
+    row.dataset.state = value.key;
+    const labelElement = document.createElement("dt");
+    labelElement.textContent = labelText;
+    const detail = document.createElement("dd");
+    detail.textContent = value.label;
+    row.append(labelElement, detail);
+    readiness.append(row);
+  }
+  preview.append(stage, captionSection, readiness);
+  elements.instagramPreviewSurface.append(preview);
+}
+
+function renderInstagramPreview() {
+  if (!elements.instagramPreviewWorkbench) return;
+  const spec = previewSpecForChannel("instagram");
+  const isInstagram = state.phase === "success"
+    && state.activeDraft === "instagram"
+    && spec?.inputMode === "publish_fields";
+  elements.instagramPreviewWorkbench.hidden = !isInstagram;
+  if (!isInstagram) {
+    elements.instagramPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.instagramPreviewMode === "preview";
+  elements.instagramEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.instagramEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.instagramPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.instagramPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.instagramPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "instagram-editor-view");
+
+  const model = currentInstagramPreviewModel();
+  elements.instagramPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.instagramPreviewStatus.dataset.state = model.status.key;
+  elements.instagramPreviewFrame.dataset.viewport = state.instagramPreviewViewport;
+  elements.instagramPreviewDesktop.setAttribute("aria-pressed", String(state.instagramPreviewViewport === "desktop"));
+  elements.instagramPreviewMobile.setAttribute("aria-pressed", String(state.instagramPreviewViewport === "mobile"));
+  elements.instagramPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.instagramPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.instagramPreviewIssues.append(row);
+  }
+  elements.instagramPreviewSurface.replaceChildren();
+  elements.instagramPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.instagramPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendInstagramPreview(model);
+  elements.instagramPreviewNotice.textContent = `${model.notice} 외부 Instagram 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function selectInstagramPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "instagram") return;
+  state.instagramPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderInstagramPreview();
+  if (focus) (state.instagramPreviewMode === "preview" ? elements.instagramPreviewView : elements.instagramEditorView).focus();
+}
+
+function currentShortsPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("shorts");
+  return createShortsPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+    operationInputs: currentOperationInputs("shorts"),
+    asset: readiness?.asset ?? null,
+  });
+}
+
+function appendShortsPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "shorts-draft-preview";
+
+  const stage = document.createElement("section");
+  stage.className = "shorts-draft-stage";
+  const topLine = document.createElement("div");
+  topLine.className = "shorts-draft-topline";
+  const account = document.createElement("span");
+  account.textContent = model.identity.handle;
+  const localLabel = document.createElement("span");
+  localLabel.textContent = "LOCAL STORYBOARD";
+  topLine.append(account, localLabel);
+
+  const mediaCheck = document.createElement("div");
+  mediaCheck.className = "shorts-draft-media-check";
+  const mediaMark = document.createElement("span");
+  mediaMark.textContent = "VIDEO CHECK";
+  const mediaState = document.createElement("strong");
+  mediaState.textContent = model.media.label;
+  const mediaDescription = document.createElement("span");
+  mediaDescription.textContent = model.media.description;
+  mediaCheck.append(mediaMark, mediaState, mediaDescription);
+
+  const selectedShot = model.content.shots[state.shortsPreviewShotIndex] ?? null;
+  const shotLabel = document.createElement("p");
+  shotLabel.className = "shorts-draft-shot-label";
+  shotLabel.textContent = selectedShot
+    ? `SHOT ${String(selectedShot.index).padStart(2, "0")} / ${String(model.content.shots.length).padStart(2, "0")}`
+    : "SHOT SEQUENCE";
+  const shotText = document.createElement("p");
+  shotText.className = "shorts-draft-shot-text";
+  shotText.dir = "auto";
+  shotText.textContent = selectedShot?.text || "샷 자막을 입력하면 세로 영상에서의 읽기 흐름을 확인할 수 있습니다.";
+  if (!selectedShot?.text) shotText.dataset.empty = "true";
+
+  const shotSequence = document.createElement("ol");
+  shotSequence.className = "shorts-draft-shot-sequence";
+  for (const [index, shot] of model.content.shots.entries()) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "shorts-draft-shot-choice";
+    button.setAttribute("aria-pressed", String(index === state.shortsPreviewShotIndex));
+    button.textContent = `${String(shot.index).padStart(2, "0")} · ${shot.text || "빈 샷 자막"}`;
+    button.addEventListener("click", () => {
+      state.shortsPreviewShotIndex = index;
+      renderShortsPreview();
+    });
+    item.append(button);
+    shotSequence.append(item);
+  }
+  stage.append(topLine, mediaCheck, shotLabel, shotText, shotSequence);
+
+  const details = document.createElement("section");
+  details.className = "shorts-draft-details";
+  const titleLabel = document.createElement("span");
+  titleLabel.className = "shorts-draft-detail-label";
+  titleLabel.textContent = `TITLE · ${localeLabel(model.locale)} · ${model.content.titleLength} / ${model.content.titleLimit}`;
+  const title = document.createElement("p");
+  title.className = "shorts-draft-title";
+  title.dir = "auto";
+  title.textContent = model.content.title || "Shorts 제목을 입력하면 읽기 폭을 확인할 수 있습니다.";
+  if (!model.content.title) title.dataset.empty = "true";
+  const descriptionLabel = document.createElement("span");
+  descriptionLabel.className = "shorts-draft-detail-label";
+  descriptionLabel.textContent = `DESCRIPTION · ${model.content.descriptionLength.toLocaleString("ko-KR")} / ${model.content.descriptionLimit.toLocaleString("ko-KR")}`;
+  const description = document.createElement("p");
+  description.className = "shorts-draft-description";
+  description.dir = "auto";
+  description.textContent = model.content.description || "Shorts 설명을 입력하면 게시 전 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.description) description.dataset.empty = "true";
+  details.append(titleLabel, title, descriptionLabel, description);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "shorts-draft-readiness";
+  const row = document.createElement("div");
+  row.dataset.state = model.media.key;
+  const readinessLabel = document.createElement("dt");
+  readinessLabel.textContent = "VIDEO";
+  const readinessDetail = document.createElement("dd");
+  readinessDetail.textContent = model.media.label;
+  row.append(readinessLabel, readinessDetail);
+  readiness.append(row);
+  preview.append(stage, details, readiness);
+  elements.shortsPreviewSurface.append(preview);
+}
+
+function renderShortsPreview() {
+  if (!elements.shortsPreviewWorkbench) return;
+  const spec = previewSpecForChannel("shorts");
+  const isShorts = state.phase === "success"
+    && state.activeDraft === "shorts"
+    && spec?.inputMode === "publish_fields";
+  elements.shortsPreviewWorkbench.hidden = !isShorts;
+  if (!isShorts) {
+    elements.shortsPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.shortsPreviewMode === "preview";
+  elements.shortsEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.shortsEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.shortsPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.shortsPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.shortsPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "shorts-editor-view");
+
+  const model = currentShortsPreviewModel();
+  const maxShotIndex = Math.max(0, model.content.shots.length - 1);
+  state.shortsPreviewShotIndex = Math.min(state.shortsPreviewShotIndex, maxShotIndex);
+  elements.shortsPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.shortsPreviewStatus.dataset.state = model.status.key;
+  elements.shortsPreviewFrame.dataset.viewport = state.shortsPreviewViewport;
+  elements.shortsPreviewDesktop.setAttribute("aria-pressed", String(state.shortsPreviewViewport === "desktop"));
+  elements.shortsPreviewMobile.setAttribute("aria-pressed", String(state.shortsPreviewViewport === "mobile"));
+  elements.shortsPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.shortsPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const issueRow = document.createElement("li");
+    issueRow.dataset.code = issue.code;
+    issueRow.textContent = issue.message;
+    elements.shortsPreviewIssues.append(issueRow);
+  }
+  elements.shortsPreviewSurface.replaceChildren();
+  elements.shortsPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.shortsPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendShortsPreview(model);
+  elements.shortsPreviewNotice.textContent = `${model.notice} 외부 YouTube 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function selectShortsPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "shorts") return;
+  state.shortsPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderShortsPreview();
+  if (focus) (state.shortsPreviewMode === "preview" ? elements.shortsPreviewView : elements.shortsEditorView).focus();
+}
+
+function currentProductHuntPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("productHunt");
+  return createProductHuntPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+    authorInputs: currentAuthorInputs("productHunt"),
+    operationInputs: currentOperationInputs("productHunt"),
+    productUrlCandidate: state.summary?.demoUrl || state.summary?.repositoryUrl || "",
+  });
+}
+
+function appendProductHuntPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "product-hunt-draft-preview";
+
+  const header = document.createElement("header");
+  header.className = "product-hunt-draft-header";
+  const thumbnail = document.createElement("div");
+  thumbnail.className = "product-hunt-draft-thumbnail";
+  thumbnail.setAttribute("aria-hidden", "true");
+  const thumbnailMark = document.createElement("span");
+  thumbnailMark.textContent = "THUMBNAIL";
+  const thumbnailState = document.createElement("strong");
+  thumbnailState.textContent = model.launch.items.find((item) => item.key.includes("gallery"))?.key === "gallery_reference_recorded" ? "CHECKED" : "TO PREPARE";
+  thumbnail.append(thumbnailMark, thumbnailState);
+  const titleGroup = document.createElement("div");
+  titleGroup.className = "product-hunt-draft-title-group";
+  const localLabel = document.createElement("span");
+  localLabel.textContent = "LOCAL LAUNCH REVIEW";
+  const name = document.createElement("h5");
+  name.dir = "auto";
+  name.textContent = model.content.name || "제품명을 입력하면 launch field 읽기 순서를 확인할 수 있습니다.";
+  if (!model.content.name) name.dataset.empty = "true";
+  const tagline = document.createElement("p");
+  tagline.className = "product-hunt-draft-tagline";
+  tagline.dir = "auto";
+  tagline.textContent = model.content.tagline || "태그라인을 입력하세요.";
+  if (!model.content.tagline) tagline.dataset.empty = "true";
+  titleGroup.append(localLabel, name, tagline);
+  header.append(thumbnail, titleGroup);
+
+  const launchMeta = document.createElement("dl");
+  launchMeta.className = "product-hunt-draft-meta";
+  const metaValues = [
+    ["URL CANDIDATE", model.launch.productUrl || "직접 확인 필요"],
+    ["PRICING", model.launch.items.find((item) => item.key.startsWith("pricing"))?.value || "직접 입력 필요"],
+    ["TOPIC", model.launch.items.find((item) => item.key.startsWith("topic"))?.value || "직접 선택 필요"],
+    ["MAKER", model.identity.handle],
+  ];
+  for (const [label, value] of metaValues) {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = value;
+    row.append(term, detail);
+    launchMeta.append(row);
+  }
+
+  const description = document.createElement("section");
+  description.className = "product-hunt-draft-description";
+  const descriptionLabel = document.createElement("span");
+  descriptionLabel.textContent = `DESCRIPTION · ${model.content.descriptionLength} / 260`;
+  const descriptionBody = document.createElement("p");
+  descriptionBody.dir = "auto";
+  descriptionBody.textContent = model.content.description || "설명을 입력하면 260자 범위의 읽기 밀도를 확인할 수 있습니다.";
+  if (!model.content.description) descriptionBody.dataset.empty = "true";
+  description.append(descriptionLabel, descriptionBody);
+
+  const comment = document.createElement("section");
+  comment.className = "product-hunt-draft-comment";
+  const commentLabel = document.createElement("span");
+  commentLabel.textContent = "MAKER FIRST COMMENT · LOCAL DRAFT";
+  const commentBody = document.createElement("p");
+  commentBody.dir = "auto";
+  commentBody.textContent = model.content.firstComment || "Maker 첫 댓글을 입력하면 공개 전에 문맥을 검토할 수 있습니다.";
+  if (!model.content.firstComment) commentBody.dataset.empty = "true";
+  comment.append(commentLabel, commentBody);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "product-hunt-draft-readiness";
+  for (const item of model.launch.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.textContent = item.description;
+    row.append(term, detail);
+    readiness.append(row);
+  }
+  preview.append(header, launchMeta, description, comment, readiness);
+  elements.productHuntPreviewSurface.append(preview);
+}
+
+function renderProductHuntPreview() {
+  if (!elements.productHuntPreviewWorkbench) return;
+  const spec = previewSpecForChannel("productHunt");
+  const isProductHunt = state.phase === "success"
+    && state.activeDraft === "productHunt"
+    && spec?.inputMode === "publish_fields";
+  elements.productHuntPreviewWorkbench.hidden = !isProductHunt;
+  if (!isProductHunt) {
+    elements.productHuntPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.productHuntPreviewMode === "preview";
+  elements.productHuntEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.productHuntEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.productHuntPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.productHuntPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.productHuntPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "product-hunt-editor-view");
+
+  const model = currentProductHuntPreviewModel();
+  elements.productHuntPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.productHuntPreviewStatus.dataset.state = model.status.key;
+  elements.productHuntPreviewFrame.dataset.viewport = state.productHuntPreviewViewport;
+  elements.productHuntPreviewDesktop.setAttribute("aria-pressed", String(state.productHuntPreviewViewport === "desktop"));
+  elements.productHuntPreviewMobile.setAttribute("aria-pressed", String(state.productHuntPreviewViewport === "mobile"));
+  elements.productHuntPreviewIssues.hidden = model.issues.length === 0;
+  elements.productHuntPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.productHuntPreviewIssues.append(row);
+  }
+  elements.productHuntPreviewSurface.replaceChildren();
+  elements.productHuntPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.productHuntPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendProductHuntPreview(model);
+  elements.productHuntPreviewNotice.textContent = `${model.notice} 외부 Product Hunt 요청·등록 ${model.externalWriteCount}회.`;
+}
+
+function selectProductHuntPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "productHunt") return;
+  state.productHuntPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderProductHuntPreview();
+  if (focus) (state.productHuntPreviewMode === "preview" ? elements.productHuntPreviewView : elements.productHuntEditorView).focus();
+}
+
+function currentPeerlistPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  const readiness = activePlatformReadinessRecord("peerlist");
+  return createPeerlistPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    publicHandle: readiness?.account?.handle ?? "",
+    operationInputs: currentOperationInputs("peerlist"),
+  });
+}
+
+function appendPeerlistPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "peerlist-draft-preview";
+
+  const header = document.createElement("header");
+  header.className = "peerlist-draft-header";
+  const cover = document.createElement("div");
+  cover.className = "peerlist-draft-cover";
+  cover.setAttribute("aria-hidden", "true");
+  const coverMark = document.createElement("span");
+  coverMark.textContent = "COVER";
+  const coverState = document.createElement("strong");
+  coverState.textContent = model.launch.items.some((item) => item.key === "cover_reference_recorded") ? "CHECKED" : "TO PREPARE";
+  cover.append(coverMark, coverState);
+  const titleGroup = document.createElement("div");
+  titleGroup.className = "peerlist-draft-title-group";
+  const localLabel = document.createElement("span");
+  localLabel.textContent = "LOCAL LAUNCHPAD REVIEW";
+  const name = document.createElement("h5");
+  name.dir = "auto";
+  name.textContent = model.content.name || "프로젝트명을 입력하면 launch field 읽기 순서를 확인할 수 있습니다.";
+  if (!model.content.name) name.dataset.empty = "true";
+  const tagline = document.createElement("p");
+  tagline.className = "peerlist-draft-tagline";
+  tagline.dir = "auto";
+  tagline.textContent = model.content.tagline || "태그라인을 입력하세요.";
+  if (!model.content.tagline) tagline.dataset.empty = "true";
+  titleGroup.append(localLabel, name, tagline);
+  header.append(cover, titleGroup);
+
+  const launchMeta = document.createElement("dl");
+  launchMeta.className = "peerlist-draft-meta";
+  const day = model.launch.items.find((item) => item.key.startsWith("launch_day"));
+  const metaValues = [
+    ["DEMO CANDIDATE", model.launch.demoUrl || "직접 확인 필요"],
+    ["MAKER HANDLE", model.identity.handle],
+    ["LAUNCH DAY", day?.key === "launch_day_confirmed" ? "CHECKED" : "TO CONFIRM"],
+  ];
+  for (const [label, value] of metaValues) {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = value;
+    row.append(term, detail);
+    launchMeta.append(row);
+  }
+
+  const comment = document.createElement("section");
+  comment.className = "peerlist-draft-comment";
+  const commentLabel = document.createElement("span");
+  commentLabel.textContent = "MAKER COMMENT · LOCAL DRAFT";
+  const commentBody = document.createElement("p");
+  commentBody.dir = "auto";
+  commentBody.textContent = model.content.comment || "Maker 댓글을 입력하면 공개 전 문맥을 검토할 수 있습니다.";
+  if (!model.content.comment) commentBody.dataset.empty = "true";
+  comment.append(commentLabel, commentBody);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "peerlist-draft-readiness";
+  for (const item of model.launch.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.textContent = item.description;
+    row.append(term, detail);
+    readiness.append(row);
+  }
+  preview.append(header, launchMeta, comment, readiness);
+  elements.peerlistPreviewSurface.append(preview);
+}
+
+function renderPeerlistPreview() {
+  if (!elements.peerlistPreviewWorkbench) return;
+  const spec = previewSpecForChannel("peerlist");
+  const isPeerlist = state.phase === "success"
+    && state.activeDraft === "peerlist"
+    && spec?.inputMode === "publish_fields";
+  elements.peerlistPreviewWorkbench.hidden = !isPeerlist;
+  if (!isPeerlist) {
+    elements.peerlistPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.peerlistPreviewMode === "preview";
+  elements.peerlistEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.peerlistEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.peerlistPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.peerlistPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.peerlistPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "peerlist-editor-view");
+
+  const model = currentPeerlistPreviewModel();
+  elements.peerlistPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.peerlistPreviewStatus.dataset.state = model.status.key;
+  elements.peerlistPreviewFrame.dataset.viewport = state.peerlistPreviewViewport;
+  elements.peerlistPreviewDesktop.setAttribute("aria-pressed", String(state.peerlistPreviewViewport === "desktop"));
+  elements.peerlistPreviewMobile.setAttribute("aria-pressed", String(state.peerlistPreviewViewport === "mobile"));
+  elements.peerlistPreviewIssues.hidden = model.issues.length === 0;
+  elements.peerlistPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.peerlistPreviewIssues.append(row);
+  }
+  elements.peerlistPreviewSurface.replaceChildren();
+  elements.peerlistPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.peerlistPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendPeerlistPreview(model);
+  elements.peerlistPreviewNotice.textContent = `${model.notice} 외부 Peerlist 요청·등록 ${model.externalWriteCount}회.`;
+}
+
+function selectPeerlistPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "peerlist") return;
+  state.peerlistPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderPeerlistPreview();
+  if (focus) (state.peerlistPreviewMode === "preview" ? elements.peerlistPreviewView : elements.peerlistEditorView).focus();
+}
+
+function currentDisquietPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  return createDisquietPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    campaignBrief: currentCampaignBrief("disquiet"),
+    operationInputs: currentOperationInputs("disquiet"),
+  });
+}
+
+function appendDisquietPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "disquiet-draft-preview";
+
+  const product = document.createElement("section");
+  product.className = "disquiet-draft-product";
+  const productEyebrow = document.createElement("p");
+  productEyebrow.className = "disquiet-draft-eyebrow";
+  productEyebrow.textContent = "PRODUCT · LOCAL RECORD";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.content.productName || "제품명을 입력하면 제품 우선 읽기 순서를 확인할 수 있습니다.";
+  if (!model.content.productName) title.dataset.empty = "true";
+  const tagline = document.createElement("p");
+  tagline.className = "disquiet-draft-tagline";
+  tagline.dir = "auto";
+  tagline.textContent = model.content.tagline || "태그라인을 입력하세요.";
+  if (!model.content.tagline) tagline.dataset.empty = "true";
+  const link = document.createElement("p");
+  link.className = "disquiet-draft-link";
+  link.dir = "auto";
+  link.textContent = model.content.productLink || "공개 제품 링크 확인 필요";
+  if (!model.content.productLink) link.dataset.empty = "true";
+  product.append(productEyebrow, title, tagline, link);
+
+  const post = document.createElement("section");
+  post.className = "disquiet-draft-post";
+  const postHeading = document.createElement("div");
+  postHeading.className = "disquiet-draft-post-heading";
+  const postLabel = document.createElement("span");
+  postLabel.textContent = "CONNECTED POST · LOCAL DRAFT";
+  const productState = document.createElement("span");
+  productState.dataset.state = model.product.ready ? "ready" : "pending";
+  productState.textContent = model.product.ready ? "PRODUCT CHECKED" : "PRODUCT CHECK REQUIRED";
+  postHeading.append(postLabel, productState);
+  const postBody = document.createElement("p");
+  postBody.dir = "auto";
+  postBody.textContent = model.content.postBody || "연결 포스트를 입력하면 제품 소개와 분리된 본문 읽기 흐름을 검토할 수 있습니다.";
+  if (!model.content.postBody) postBody.dataset.empty = "true";
+  post.append(postHeading, postBody);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "disquiet-draft-readiness";
+  for (const item of model.product.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.textContent = item.description;
+    row.append(term, detail);
+    readiness.append(row);
+  }
+  preview.append(product, post, readiness);
+  elements.disquietPreviewSurface.append(preview);
+}
+
+function renderDisquietPreview() {
+  if (!elements.disquietPreviewWorkbench) return;
+  const spec = previewSpecForChannel("disquiet");
+  const isDisquiet = state.phase === "success"
+    && state.activeDraft === "disquiet"
+    && spec?.inputMode === "publish_fields";
+  elements.disquietPreviewWorkbench.hidden = !isDisquiet;
+  if (!isDisquiet) {
+    elements.disquietPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.disquietPreviewMode === "preview";
+  elements.disquietEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.disquietEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.disquietPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.disquietPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.disquietPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "disquiet-editor-view");
+
+  const model = currentDisquietPreviewModel();
+  elements.disquietPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.disquietPreviewStatus.dataset.state = model.status.key;
+  elements.disquietPreviewFrame.dataset.viewport = state.disquietPreviewViewport;
+  elements.disquietPreviewDesktop.setAttribute("aria-pressed", String(state.disquietPreviewViewport === "desktop"));
+  elements.disquietPreviewMobile.setAttribute("aria-pressed", String(state.disquietPreviewViewport === "mobile"));
+  elements.disquietPreviewIssues.hidden = model.issues.length === 0;
+  elements.disquietPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.disquietPreviewIssues.append(row);
+  }
+  elements.disquietPreviewSurface.replaceChildren();
+  elements.disquietPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.disquietPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendDisquietPreview(model);
+  elements.disquietPreviewNotice.textContent = `${model.notice} 외부 Disquiet 요청·등록 ${model.externalWriteCount}회.`;
+}
+
+function selectDisquietPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "disquiet") return;
+  state.disquietPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderDisquietPreview();
+  if (focus) (state.disquietPreviewMode === "preview" ? elements.disquietPreviewView : elements.disquietEditorView).focus();
+}
+
+function currentRedditPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  return createRedditPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    authorInputs: currentAuthorInputs("reddit"),
+    operationInputs: currentOperationInputs("reddit"),
+    brief: state.redditBrief,
+  });
+}
+
+function syncRedditBriefInputs() {
+  if (!elements.redditBriefForm) return;
+  if (elements.redditPostTypeInput.value !== state.redditBrief.postType) elements.redditPostTypeInput.value = state.redditBrief.postType;
+  if (elements.redditTitleInput.value !== state.redditBrief.title) elements.redditTitleInput.value = state.redditBrief.title;
+  if (elements.redditBodyInput.value !== state.redditBrief.body) elements.redditBodyInput.value = state.redditBrief.body;
+  elements.redditNsfwInput.checked = state.redditBrief.nsfw;
+  elements.redditSpoilerInput.checked = state.redditBrief.spoiler;
+}
+
+function appendRedditPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "reddit-draft-preview";
+
+  const header = document.createElement("header");
+  header.className = "reddit-draft-header";
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "reddit-draft-eyebrow";
+  eyebrow.textContent = "COMMUNITY SUBMISSION · LOCAL STRUCTURE REVIEW";
+  const community = document.createElement("p");
+  community.className = "reddit-draft-community";
+  community.dir = "auto";
+  community.textContent = model.community.community || "대상 community를 직접 입력하고 확인하세요.";
+  if (!model.community.community) community.dataset.empty = "true";
+  const flags = document.createElement("p");
+  flags.className = "reddit-draft-flags";
+  const postType = model.manualDraft.postType === "unconfirmed" ? "POST TYPE · TO CONFIRM" : `POST TYPE · ${model.manualDraft.postType.toUpperCase()}`;
+  flags.textContent = [postType, model.manualDraft.nsfw ? "NSFW · CHECKED" : "NSFW · NOT SET", model.manualDraft.spoiler ? "SPOILER · CHECKED" : "SPOILER · NOT SET"].join("  /  ");
+  header.append(eyebrow, community, flags);
+
+  const draft = document.createElement("section");
+  draft.className = "reddit-draft-copy";
+  const titleLabel = document.createElement("span");
+  titleLabel.textContent = "DIRECT AUTHOR DRAFT · TITLE";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.manualDraft.title || "제목은 작성자가 직접 입력합니다. 참고 자료로 자동 생성하지 않습니다.";
+  if (!model.manualDraft.title) title.dataset.empty = "true";
+  const body = document.createElement("p");
+  body.dir = "auto";
+  body.textContent = model.manualDraft.body || "본문은 작성자가 직접 입력합니다. community 규칙과 사실 자료를 확인한 뒤 검토하세요.";
+  if (!model.manualDraft.body) body.dataset.empty = "true";
+  draft.append(titleLabel, title, body);
+
+  const facts = document.createElement("details");
+  facts.className = "reddit-draft-facts";
+  const summary = document.createElement("summary");
+  summary.textContent = "VERIFIED FACTS · REFERENCE ONLY · NOT A POST";
+  const factText = document.createElement("p");
+  factText.dir = "auto";
+  factText.textContent = model.facts.facts || "검증된 사실 자료가 없습니다.";
+  facts.append(summary, factText);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "reddit-draft-readiness";
+  for (const item of model.community.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = item.description;
+    row.append(term, detail);
+    readiness.append(row);
+  }
+  preview.append(header, draft, facts, readiness);
+  elements.redditPreviewSurface.append(preview);
+}
+
+function renderRedditPreview() {
+  if (!elements.redditPreviewWorkbench) return;
+  const spec = previewSpecForChannel("reddit");
+  const isReddit = state.phase === "success"
+    && state.activeDraft === "reddit"
+    && spec?.inputMode === "reference_only";
+  elements.redditPreviewWorkbench.hidden = !isReddit;
+  if (!isReddit) {
+    elements.redditPreviewPanel.hidden = true;
+    return;
+  }
+
+  const previewMode = state.redditPreviewMode === "preview";
+  elements.redditEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.redditEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.redditPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.redditPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.redditPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "reddit-editor-view");
+
+  syncRedditBriefInputs();
+  const model = currentRedditPreviewModel();
+  elements.redditPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.redditPreviewStatus.dataset.state = model.status.key;
+  elements.redditPreviewFrame.dataset.viewport = state.redditPreviewViewport;
+  elements.redditPreviewDesktop.setAttribute("aria-pressed", String(state.redditPreviewViewport === "desktop"));
+  elements.redditPreviewMobile.setAttribute("aria-pressed", String(state.redditPreviewViewport === "mobile"));
+  elements.redditPreviewIssues.hidden = model.issues.length === 0;
+  elements.redditPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.redditPreviewIssues.append(row);
+  }
+  elements.redditPreviewSurface.replaceChildren();
+  elements.redditPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.redditPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendRedditPreview(model);
+  elements.redditPreviewNotice.textContent = `${model.notice} 외부 Reddit 요청·제출 ${model.externalWriteCount}회.`;
+}
+
+function selectRedditPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "reddit") return;
+  state.redditPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderRedditPreview();
+  if (focus) (state.redditPreviewMode === "preview" ? elements.redditPreviewView : elements.redditEditorView).focus();
+}
+
+function updateRedditBrief(next) {
+  state.redditBrief = { ...state.redditBrief, ...next };
+  renderRedditPreview();
+}
+
+function currentIndieHackersPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  return createIndieHackersPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    authorInputs: currentAuthorInputs("indieHackers"),
+    campaignBrief: currentCampaignBrief("indieHackers"),
+  });
+}
+
+function appendIndieHackersPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "indie-hackers-draft-preview";
+  const header = document.createElement("header");
+  header.className = "indie-hackers-draft-header";
+  const eyebrow = document.createElement("p");
+  eyebrow.textContent = "FOUNDER DISCUSSION · LOCAL REVIEW";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.content.title || "제목이 비어 있습니다.";
+  if (!model.content.title) title.dataset.empty = "true";
+  const metrics = document.createElement("p");
+  metrics.className = "indie-hackers-draft-metrics";
+  metrics.textContent = `${model.content.characterCount}자 · ${model.content.question ? "QUESTION PRESENT" : "QUESTION TO ADD"}`;
+  header.append(eyebrow, title, metrics);
+
+  const body = document.createElement("section");
+  body.className = "indie-hackers-draft-body";
+  const bodyLabel = document.createElement("span");
+  bodyLabel.textContent = "DRAFT · PROBLEM / LEARNING / QUESTION";
+  const text = document.createElement("p");
+  text.dir = "auto";
+  text.textContent = model.content.body || "본문이 비어 있습니다. 실제 제작 경험과 독자가 답할 질문을 직접 작성하세요.";
+  if (!model.content.body) text.dataset.empty = "true";
+  body.append(bodyLabel, text);
+
+  const experience = document.createElement("dl");
+  experience.className = "indie-hackers-draft-experience";
+  for (const item of model.experience.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = item.description;
+    row.append(term, detail);
+    experience.append(row);
+  }
+  preview.append(header, body, experience);
+  elements.indieHackersPreviewSurface.append(preview);
+}
+
+function renderIndieHackersPreview() {
+  if (!elements.indieHackersPreviewWorkbench) return;
+  const spec = previewSpecForChannel("indieHackers");
+  const visible = state.phase === "success" && state.activeDraft === "indieHackers" && spec?.inputMode === "publish_fields";
+  elements.indieHackersPreviewWorkbench.hidden = !visible;
+  if (!visible) {
+    elements.indieHackersPreviewPanel.hidden = true;
+    return;
+  }
+  const previewMode = state.indieHackersPreviewMode === "preview";
+  elements.indieHackersEditorView.setAttribute("aria-selected", String(!previewMode));
+  elements.indieHackersEditorView.tabIndex = previewMode ? -1 : 0;
+  elements.indieHackersPreviewView.setAttribute("aria-selected", String(previewMode));
+  elements.indieHackersPreviewView.tabIndex = previewMode ? 0 : -1;
+  elements.compareEditors.hidden = previewMode;
+  elements.editorHelp.hidden = previewMode;
+  elements.indieHackersPreviewPanel.hidden = !previewMode;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "indie-hackers-editor-view");
+  const model = currentIndieHackersPreviewModel();
+  elements.indieHackersPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.indieHackersPreviewStatus.dataset.state = model.status.key;
+  elements.indieHackersPreviewFrame.dataset.viewport = state.indieHackersPreviewViewport;
+  elements.indieHackersPreviewDesktop.setAttribute("aria-pressed", String(state.indieHackersPreviewViewport === "desktop"));
+  elements.indieHackersPreviewMobile.setAttribute("aria-pressed", String(state.indieHackersPreviewViewport === "mobile"));
+  elements.indieHackersPreviewIssues.hidden = model.issues.length === 0;
+  elements.indieHackersPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.indieHackersPreviewIssues.append(row);
+  }
+  elements.indieHackersPreviewSurface.replaceChildren();
+  elements.indieHackersPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.indieHackersPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendIndieHackersPreview(model);
+  elements.indieHackersPreviewNotice.textContent = `${model.notice} 외부 Indie Hackers 요청·등록 ${model.externalWriteCount}회.`;
+}
+
+function selectIndieHackersPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "indieHackers") return;
+  state.indieHackersPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderIndieHackersPreview();
+  if (focus) (state.indieHackersPreviewMode === "preview" ? elements.indieHackersPreviewView : elements.indieHackersEditorView).focus();
+}
+
+function currentTikTokPreviewModel() {
+  return createTikTokPreviewModel({ brief: state.tiktokBrief });
+}
+
+function renderDevPreview() {
+  if (!elements.devPreviewWorkbench) return;
+  const visible = state.phase === "success" && state.activeDraft === "dev" && previewSpecForChannel("dev")?.inputMode === "reference_only";
+  elements.devPreviewWorkbench.hidden = !visible;
+  if (!visible) { elements.devPreviewPanel.hidden = true; return; }
+  const preview = state.devPreviewMode === "preview";
+  elements.devEditorView.setAttribute("aria-selected", String(!preview)); elements.devPreviewView.setAttribute("aria-selected", String(preview));
+  elements.compareEditors.hidden = preview; elements.editorHelp.hidden = preview; elements.devPreviewPanel.hidden = !preview;
+  const entry = localeEntry(state.activeLocale);
+  const model = createDevPreviewModel({ publishFields: entry?.publishFields ?? {}, locale: state.activeLocale, localeAvailable: Boolean(entry?.publishFields), localeStale: Boolean(entry?.stale), approvalStatus: currentApprovalAssessment().status, authorInputs: currentAuthorInputs("dev"), brief: state.devBrief });
+  for (const [element, key] of [[elements.devTitleInput,"title"],[elements.devBodyInput,"body"],[elements.devTagsInput,"tags"],[elements.devDisclosureInput,"disclosure"]]) if (document.activeElement !== element) element.value = state.devBrief[key];
+  elements.devPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`; elements.devPreviewIssues.hidden = !model.issues.length; elements.devPreviewIssues.replaceChildren();
+  for (const issue of model.issues) { const li=document.createElement("li"); li.textContent=issue.message; elements.devPreviewIssues.append(li); }
+  elements.devPreviewSurface.replaceChildren(); if (model.status.key !== "empty") { const article=document.createElement("article"); article.className="dev-article-proof"; const head=document.createElement("header"); const meta=document.createElement("p"); meta.textContent="HUMAN DRAFT · TECHNICAL ARTICLE"; const title=document.createElement("h5"); title.textContent=model.article.title || "작성자 직접 제목 필요"; head.append(meta,title); const body=document.createElement("section"); const text=document.createElement("p"); text.textContent=model.article.body || "실제 사례·코드·실패를 포함한 본문을 직접 작성하세요."; body.append(text); const checks=document.createElement("dl"); for (const item of model.checks) { const dt=document.createElement("dt"),dd=document.createElement("dd"); dt.textContent=item.label; dd.textContent=item.value || "직접 입력 필요"; checks.append(dt,dd); } article.append(head,body,checks); elements.devPreviewSurface.append(article); }
+  elements.devPreviewNotice.textContent=`${model.notice} 외부 DEV 요청·게시 ${model.externalWriteCount}회.`;
+}
+function selectDevPreview(mode, { focus = false } = {}) { if (state.activeDraft !== "dev") return; state.devPreviewMode=mode === "preview" ? "preview" : "editor"; renderDevPreview(); if (focus) (state.devPreviewMode === "preview" ? elements.devPreviewView : elements.devEditorView).focus(); }
+
+function currentOkkyPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  return createOkkyPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    operationInputs: currentOperationInputs("okky"),
+    brief: state.okkyBrief,
+  });
+}
+
+function appendOkkyPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "okky-draft-preview";
+  const header = document.createElement("header");
+  header.className = "okky-draft-header";
+  const eyebrow = document.createElement("p");
+  eyebrow.textContent = "KOREAN DEVELOPER COMMUNITY · LOCAL REVIEW";
+  const context = document.createElement("p");
+  context.className = "okky-draft-context";
+  context.textContent = `POST CONTEXT · ${model.context.label}`;
+  header.append(eyebrow, context);
+
+  const draft = document.createElement("section");
+  draft.className = "okky-draft-copy";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.content.title || "제목이 비어 있습니다.";
+  if (!model.content.title) title.dataset.empty = "true";
+  const meta = document.createElement("p");
+  meta.className = "okky-draft-metrics";
+  meta.textContent = `${model.content.characterCount}자 · ${model.content.asksForFeedback ? "FEEDBACK QUESTION PRESENT" : "FEEDBACK QUESTION TO ADD"}`;
+  const body = document.createElement("p");
+  body.dir = "auto";
+  body.textContent = model.content.body || "본문이 비어 있습니다. 개발 경험·현재 한계와 한 가지 피드백 질문을 직접 확인하세요.";
+  if (!model.content.body) body.dataset.empty = "true";
+  draft.append(title, meta, body);
+
+  const gates = document.createElement("dl");
+  gates.className = "okky-draft-gates";
+  for (const item of model.context.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = item.description;
+    row.append(term, detail);
+    gates.append(row);
+  }
+  preview.append(header, draft, gates);
+  elements.okkyPreviewSurface.append(preview);
+}
+
+function renderOkkyPreview() {
+  if (!elements.okkyPreviewWorkbench) return;
+  const spec = previewSpecForChannel("okky");
+  const visible = state.phase === "success" && state.activeDraft === "okky" && spec?.inputMode === "publish_fields";
+  elements.okkyPreviewWorkbench.hidden = !visible;
+  if (!visible) {
+    elements.okkyPreviewPanel.hidden = true;
+    return;
+  }
+  const preview = state.okkyPreviewMode === "preview";
+  elements.okkyEditorView.setAttribute("aria-selected", String(!preview));
+  elements.okkyEditorView.tabIndex = preview ? -1 : 0;
+  elements.okkyPreviewView.setAttribute("aria-selected", String(preview));
+  elements.okkyPreviewView.tabIndex = preview ? 0 : -1;
+  elements.compareEditors.hidden = preview;
+  elements.editorHelp.hidden = preview;
+  elements.okkyPreviewPanel.hidden = !preview;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "okky-editor-view");
+  if (elements.okkyContextInput.value !== state.okkyBrief.context) elements.okkyContextInput.value = state.okkyBrief.context;
+  const model = currentOkkyPreviewModel();
+  elements.okkyPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.okkyPreviewStatus.dataset.state = model.status.key;
+  elements.okkyPreviewFrame.dataset.viewport = state.okkyPreviewViewport;
+  elements.okkyPreviewDesktop.setAttribute("aria-pressed", String(state.okkyPreviewViewport === "desktop"));
+  elements.okkyPreviewMobile.setAttribute("aria-pressed", String(state.okkyPreviewViewport === "mobile"));
+  elements.okkyPreviewIssues.hidden = model.issues.length === 0;
+  elements.okkyPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.okkyPreviewIssues.append(row);
+  }
+  elements.okkyPreviewSurface.replaceChildren();
+  elements.okkyPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.okkyPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendOkkyPreview(model);
+  elements.okkyPreviewNotice.textContent = `${model.notice} 외부 OKKY 요청·제출 ${model.externalWriteCount}회.`;
+}
+
+function selectOkkyPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "okky") return;
+  state.okkyPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderOkkyPreview();
+  if (focus) (state.okkyPreviewMode === "preview" ? elements.okkyPreviewView : elements.okkyEditorView).focus();
+}
+
+function currentGeekNewsPreviewModel() {
+  const entry = localeEntry(state.activeLocale);
+  return createGeekNewsPreviewModel({
+    publishFields: entry?.publishFields ?? {},
+    locale: state.activeLocale,
+    localeAvailable: Boolean(entry?.publishFields),
+    localeStale: Boolean(entry?.stale),
+    approvalStatus: currentApprovalAssessment().status,
+    sourceUrl: state.repository?.url ?? "",
+    demoUrl: state.facts?.demoUrl ?? "",
+    operationInputs: currentOperationInputs("geeknews"),
+    preflight: state.preflight,
+  });
+}
+
+function appendGeekNewsPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "geeknews-show-proof";
+
+  const header = document.createElement("header");
+  const eyebrow = document.createElement("p");
+  eyebrow.textContent = "SHOW · LOCAL SUBMISSION REVIEW";
+  const type = document.createElement("strong");
+  type.textContent = "등록 유형 · SHOW";
+  header.append(eyebrow, type);
+
+  const copy = document.createElement("section");
+  copy.className = "geeknews-show-copy";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.content.title || "제목이 비어 있습니다.";
+  if (!model.content.title) title.dataset.empty = "true";
+  const meta = document.createElement("p");
+  meta.className = "geeknews-show-metrics";
+  meta.textContent = `${model.content.characterCount}자 · TITLE + DESCRIPTION`;
+  const body = document.createElement("p");
+  body.dir = "auto";
+  body.textContent = model.content.body || "본문이 비어 있습니다. 직접 만든 작업, 구현 방식, 한계와 피드백 요청을 실제 내용으로 확인하세요.";
+  if (!model.content.body) body.dataset.empty = "true";
+  copy.append(title, meta, body);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "geeknews-show-readiness";
+  for (const item of model.readiness.entries) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = item.value || item.description;
+    row.append(term, detail);
+    readiness.append(row);
+  }
+  preview.append(header, copy, readiness);
+  elements.geeknewsPreviewSurface.append(preview);
+}
+
+function renderGeekNewsPreview() {
+  if (!elements.geeknewsPreviewWorkbench) return;
+  const spec = previewSpecForChannel("geeknews");
+  const visible = state.phase === "success" && state.activeDraft === "geeknews" && spec?.inputMode === "publish_fields";
+  elements.geeknewsPreviewWorkbench.hidden = !visible;
+  if (!visible) {
+    elements.geeknewsPreviewPanel.hidden = true;
+    return;
+  }
+  const preview = state.geeknewsPreviewMode === "preview";
+  elements.geeknewsEditorView.setAttribute("aria-selected", String(!preview));
+  elements.geeknewsEditorView.tabIndex = preview ? -1 : 0;
+  elements.geeknewsPreviewView.setAttribute("aria-selected", String(preview));
+  elements.geeknewsPreviewView.tabIndex = preview ? 0 : -1;
+  elements.compareEditors.hidden = preview;
+  elements.editorHelp.hidden = preview;
+  elements.geeknewsPreviewPanel.hidden = !preview;
+  elements.compareEditors.setAttribute("role", "tabpanel");
+  elements.compareEditors.setAttribute("aria-labelledby", "geeknews-editor-view");
+  const model = currentGeekNewsPreviewModel();
+  elements.geeknewsPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.geeknewsPreviewStatus.dataset.state = model.status.key;
+  elements.geeknewsPreviewFrame.dataset.viewport = state.geeknewsPreviewViewport;
+  elements.geeknewsPreviewDesktop.setAttribute("aria-pressed", String(state.geeknewsPreviewViewport === "desktop"));
+  elements.geeknewsPreviewMobile.setAttribute("aria-pressed", String(state.geeknewsPreviewViewport === "mobile"));
+  elements.geeknewsPreviewIssues.hidden = model.issues.length === 0;
+  elements.geeknewsPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.geeknewsPreviewIssues.append(row);
+  }
+  elements.geeknewsPreviewSurface.replaceChildren();
+  elements.geeknewsPreviewEmpty.hidden = model.status.key !== "empty";
+  elements.geeknewsPreviewEmpty.textContent = model.emptyMessage;
+  if (model.status.key !== "empty") appendGeekNewsPreview(model);
+  elements.geeknewsPreviewNotice.textContent = `${model.notice} 외부 GeekNews 요청·등록 ${model.externalWriteCount}회.`;
+}
+
+function selectGeekNewsPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "geeknews") return;
+  state.geeknewsPreviewMode = mode === "preview" ? "preview" : "editor";
+  renderGeekNewsPreview();
+  if (focus) (state.geeknewsPreviewMode === "preview" ? elements.geeknewsPreviewView : elements.geeknewsEditorView).focus();
+}
+
+function currentShowHnPreviewModel() {
+  return createShowHnPreviewModel({ brief: state.showHnBrief });
+}
+
+function syncShowHnBriefInputs() {
+  const values = [
+    [elements.showHnTitleInput, "title"],
+    [elements.showHnBodyInput, "body"],
+    [elements.showHnSourceInput, "sourceUrl"],
+    [elements.showHnDemoInput, "demoUrl"],
+  ];
+  for (const [element, key] of values) {
+    if (document.activeElement !== element) element.value = state.showHnBrief[key];
+  }
+  elements.showHnHandwrittenInput.checked = state.showHnBrief.handwrittenConfirmed;
+  elements.showHnOwnershipInput.checked = state.showHnBrief.ownershipConfirmed;
+}
+
+function appendShowHnPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "show-hn-author-proof";
+  const header = document.createElement("header");
+  const label = document.createElement("p");
+  label.textContent = "AUTHOR-WRITTEN TEXT · LOCAL REVIEW";
+  const manual = document.createElement("strong");
+  manual.textContent = "MANUAL SUBMISSION DRAFT";
+  header.append(label, manual);
+
+  const draft = document.createElement("section");
+  draft.className = "show-hn-author-copy";
+  const title = document.createElement("h5");
+  title.dir = "auto";
+  title.textContent = model.content.title || "직접 작성한 `Show HN:` 제목이 필요합니다.";
+  if (!model.content.title) title.dataset.empty = "true";
+  const meta = document.createElement("p");
+  meta.className = "show-hn-author-metrics";
+  meta.textContent = `${model.content.bodyLength}자 · BACKSTORY / WHAT / WHY / DIFFERENCE`;
+  const body = document.createElement("p");
+  body.dir = "auto";
+  body.textContent = model.content.body || "작성자가 직접 만든 이유, 무엇을 만들었는지, 무엇이 다른지와 한계를 직접 작성하세요.";
+  if (!model.content.body) body.dataset.empty = "true";
+  draft.append(title, meta, body);
+
+  const links = document.createElement("dl");
+  links.className = "show-hn-author-links";
+  for (const [labelText, value, fallback] of [
+    ["SOURCE", model.content.sourceUrl, "원본 source URL 직접 입력 필요"],
+    ["TRY IT", model.content.demoUrl, "가입 장벽 없는 demo URL 직접 입력 필요"],
+  ]) {
+    const row = document.createElement("div");
+    row.dataset.state = value ? "recorded" : "required";
+    const term = document.createElement("dt");
+    term.textContent = labelText;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = value || fallback;
+    row.append(term, detail);
+    links.append(row);
+  }
+
+  const author = document.createElement("dl");
+  author.className = "show-hn-author-gates";
+  for (const item of model.author.items) {
+    const row = document.createElement("div");
+    row.dataset.state = item.key;
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+    const detail = document.createElement("dd");
+    detail.textContent = item.description;
+    row.append(term, detail);
+    author.append(row);
+  }
+  preview.append(header, draft, links, author);
+  elements.showHnPreviewSurface.append(preview);
+}
+
+function renderShowHnPreview() {
+  if (!elements.showHnPreviewWorkbench) return;
+  const spec = previewSpecForChannel("showHn");
+  const visible = state.phase === "success" && state.activeDraft === "showHn" && spec?.inputMode === "manual_only";
+  elements.showHnPreviewWorkbench.hidden = !visible;
+  if (!visible) {
+    elements.showHnAuthorPanel.hidden = true;
+    elements.showHnPreviewPanel.hidden = true;
+    return;
+  }
+  const preview = state.showHnPreviewMode === "preview";
+  elements.showHnAuthorView.setAttribute("aria-selected", String(!preview));
+  elements.showHnAuthorView.tabIndex = preview ? -1 : 0;
+  elements.showHnPreviewView.setAttribute("aria-selected", String(preview));
+  elements.showHnPreviewView.tabIndex = preview ? 0 : -1;
+  elements.compareEditors.hidden = true;
+  elements.editorHelp.hidden = true;
+  elements.showHnAuthorPanel.hidden = preview;
+  elements.showHnPreviewPanel.hidden = !preview;
+  syncShowHnBriefInputs();
+  const model = currentShowHnPreviewModel();
+  elements.showHnPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.showHnPreviewStatus.dataset.state = model.status.key;
+  elements.showHnPreviewFrame.dataset.viewport = state.showHnPreviewViewport;
+  elements.showHnPreviewDesktop.setAttribute("aria-pressed", String(state.showHnPreviewViewport === "desktop"));
+  elements.showHnPreviewMobile.setAttribute("aria-pressed", String(state.showHnPreviewViewport === "mobile"));
+  elements.showHnPreviewIssues.hidden = model.issues.length === 0;
+  elements.showHnPreviewIssues.replaceChildren();
+  for (const issue of model.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.showHnPreviewIssues.append(row);
+  }
+  elements.showHnPreviewSurface.replaceChildren();
+  appendShowHnPreview(model);
+  elements.showHnPreviewNotice.textContent = `${model.notice} 외부 Hacker News 요청·제출 ${model.externalWriteCount}회.`;
+}
+
+function selectShowHnPreviewMode(mode, { focus = false } = {}) {
+  if (state.activeDraft !== "showHn") return;
+  state.showHnPreviewMode = mode === "preview" ? "preview" : "author";
+  renderShowHnPreview();
+  if (focus) (state.showHnPreviewMode === "preview" ? elements.showHnPreviewView : elements.showHnAuthorView).focus();
+}
+
+function updateShowHnBrief(next) {
+  state.showHnBrief = { ...state.showHnBrief, ...next };
+  renderShowHnPreview();
+}
+
+function appendTikTokPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "tiktok-draft-preview";
+
+  const stage = document.createElement("section");
+  stage.className = "tiktok-draft-stage";
+  const topLine = document.createElement("div");
+  topLine.className = "tiktok-draft-topline";
+  const identity = document.createElement("span");
+  identity.textContent = "@preview_creator";
+  const localLabel = document.createElement("span");
+  localLabel.textContent = "LOCAL VERTICAL REVIEW";
+  topLine.append(identity, localLabel);
+
+  const mediaCheck = document.createElement("div");
+  mediaCheck.className = "tiktok-draft-media-check";
+  const mediaMark = document.createElement("span");
+  mediaMark.textContent = "MEDIA REVIEW";
+  const mediaState = document.createElement("strong");
+  mediaState.textContent = model.media.label;
+  const mediaDescription = document.createElement("span");
+  mediaDescription.textContent = model.media.description;
+  mediaCheck.append(mediaMark, mediaState, mediaDescription);
+
+  const cover = document.createElement("p");
+  cover.className = "tiktok-draft-cover";
+  cover.dir = "auto";
+  cover.textContent = model.content.cover || "첫 화면 문구를 입력하면 세로 읽기 폭에서 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.cover) cover.dataset.empty = "true";
+  const coverCount = document.createElement("span");
+  coverCount.className = "tiktok-draft-cover-count";
+  coverCount.textContent = `${model.content.coverLength}자 · FIRST FRAME`;
+  stage.append(topLine, mediaCheck, cover, coverCount);
+
+  const captionSection = document.createElement("section");
+  captionSection.className = "tiktok-draft-caption-section";
+  const captionLabel = document.createElement("span");
+  captionLabel.className = "tiktok-draft-caption-label";
+  captionLabel.textContent = `CAPTION · ${model.content.captionLength}자`;
+  const caption = document.createElement("p");
+  caption.className = "tiktok-draft-caption";
+  caption.dir = "auto";
+  caption.textContent = model.content.caption || "직접 작성한 캡션을 입력하면 게시 전 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.caption) caption.dataset.empty = "true";
+  captionSection.append(captionLabel, caption);
+
+  const readiness = document.createElement("dl");
+  readiness.className = "tiktok-draft-readiness";
+  for (const [labelText, value] of [["VISIBILITY", model.visibility], ["MEDIA", model.media]]) {
+    const row = document.createElement("div");
+    row.dataset.state = value.key;
+    const label = document.createElement("dt");
+    label.textContent = labelText;
+    const detail = document.createElement("dd");
+    detail.textContent = value.label;
+    row.append(label, detail);
+    readiness.append(row);
+  }
+  preview.append(stage, captionSection, readiness);
+  elements.tiktokPreviewSurface.append(preview);
+}
+
+function syncTikTokBriefInputs() {
+  if (document.activeElement !== elements.tiktokCaptionInput) elements.tiktokCaptionInput.value = state.tiktokBrief.caption;
+  if (document.activeElement !== elements.tiktokCoverInput) elements.tiktokCoverInput.value = state.tiktokBrief.cover;
+  if (document.activeElement !== elements.tiktokVisibilityInput) elements.tiktokVisibilityInput.value = state.tiktokBrief.visibility;
+  elements.tiktokAssetReviewedInput.checked = state.tiktokBrief.assetReviewed;
+  elements.tiktokWatermarkReviewedInput.checked = state.tiktokBrief.watermarkReviewed;
+}
+
+function renderTikTokPreview() {
+  if (!elements.tiktokPreviewLab) return;
+  const spec = previewSpecForPlatform("tiktok");
+  const visible = state.phase === "success" && spec?.inputMode === "manual_brief";
+  elements.tiktokPreviewLab.hidden = !visible;
+  if (!visible) return;
+  syncTikTokBriefInputs();
+  const model = currentTikTokPreviewModel();
+  elements.tiktokPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.tiktokPreviewStatus.dataset.state = model.status.key;
+  elements.tiktokPreviewFrame.dataset.viewport = state.tiktokPreviewViewport;
+  elements.tiktokPreviewDesktop.setAttribute("aria-pressed", String(state.tiktokPreviewViewport === "desktop"));
+  elements.tiktokPreviewMobile.setAttribute("aria-pressed", String(state.tiktokPreviewViewport === "mobile"));
+  elements.tiktokPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.tiktokPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.tiktokPreviewIssues.append(row);
+  }
+  elements.tiktokPreviewSurface.replaceChildren();
+  appendTikTokPreview(model);
+  elements.tiktokPreviewNotice.textContent = `${model.notice} 외부 TikTok 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function updateTikTokBrief(next) {
+  state.tiktokBrief = { ...state.tiktokBrief, ...next };
+  renderTikTokPreview();
+}
+
+function currentDiscordPreviewModel() {
+  return createDiscordPreviewModel({ brief: state.discordBrief });
+}
+
+function appendDiscordPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "discord-draft-proof";
+
+  const header = document.createElement("header");
+  header.className = "discord-draft-proof-header";
+  const label = document.createElement("p");
+  label.textContent = "LOCAL MESSAGE REVIEW · NO SERVICE CONNECTION";
+  const target = document.createElement("strong");
+  target.dir = "auto";
+  target.textContent = model.content.targetAlias ? `TARGET · ${model.content.targetAlias}` : "TARGET · 별칭 미입력";
+  header.append(label, target);
+
+  const message = document.createElement("section");
+  message.className = "discord-draft-message";
+  const metrics = document.createElement("p");
+  metrics.className = "discord-draft-metrics";
+  metrics.textContent = `${model.content.messageLength.toLocaleString("ko-KR")} / 2,000자 · 여유 ${Math.max(0, model.content.messageRemaining).toLocaleString("ko-KR")}`;
+  const text = document.createElement("p");
+  text.className = "discord-draft-message-text";
+  text.dir = "auto";
+  text.textContent = model.content.message || "직접 작성한 메시지를 입력하면 읽기 폭과 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.message) text.dataset.empty = "true";
+  message.append(metrics, text);
+
+  const safety = document.createElement("dl");
+  safety.className = "discord-draft-safety";
+  const mentionRow = document.createElement("div");
+  mentionRow.dataset.state = model.mentionSafety.candidates.length ? "review" : "none";
+  const mentionTerm = document.createElement("dt");
+  mentionTerm.textContent = "MENTION REVIEW";
+  const mentionDetail = document.createElement("dd");
+  mentionDetail.dir = "auto";
+  const candidates = model.mentionSafety.candidates.length ? `후보: ${model.mentionSafety.candidates.join(", ")} · ` : "후보 없음 · ";
+  mentionDetail.textContent = `${candidates}로컬 기본: 알림 대상 없음${model.mentionSafety.reviewed ? " · 직접 확인됨" : ""}`;
+  mentionRow.append(mentionTerm, mentionDetail);
+  safety.append(mentionRow);
+
+  preview.append(header, message, safety);
+  if (model.extra.entered) {
+    const extra = document.createElement("section");
+    extra.className = "discord-draft-extra";
+    const extraLabel = document.createElement("p");
+    extraLabel.textContent = "OPTIONAL CONTEXT · LOCAL ONLY";
+    const extraTitle = document.createElement("strong");
+    extraTitle.dir = "auto";
+    extraTitle.textContent = model.extra.title || "추가 정보 제목 없음";
+    const extraDescription = document.createElement("p");
+    extraDescription.dir = "auto";
+    extraDescription.textContent = model.extra.description || "추가 정보 설명 없음";
+    const extraUrl = document.createElement("p");
+    extraUrl.className = "discord-draft-extra-url";
+    extraUrl.dir = "auto";
+    extraUrl.textContent = model.extra.url || "공개 HTTPS 링크 미확인";
+    extra.append(extraLabel, extraTitle, extraDescription, extraUrl);
+    preview.append(extra);
+  }
+  elements.discordPreviewSurface.append(preview);
+}
+
+function syncDiscordBriefInputs() {
+  const fields = [
+    [elements.discordTargetAliasInput, "targetAlias"],
+    [elements.discordMessageInput, "message"],
+    [elements.discordEmbedTitleInput, "embedTitle"],
+    [elements.discordEmbedDescriptionInput, "embedDescription"],
+    [elements.discordEmbedUrlInput, "embedUrl"],
+  ];
+  for (const [element, key] of fields) {
+    if (element && document.activeElement !== element) element.value = state.discordBrief[key];
+  }
+  if (elements.discordMentionReviewedInput) elements.discordMentionReviewedInput.checked = state.discordBrief.mentionReviewed;
+}
+
+function renderDiscordPreview() {
+  if (!elements.discordPreviewLab) return;
+  const spec = previewSpecForPlatform("discord");
+  const visible = state.phase === "success" && spec?.inputMode === "manual_brief";
+  elements.discordPreviewLab.hidden = !visible;
+  if (!visible) return;
+  syncDiscordBriefInputs();
+  const model = currentDiscordPreviewModel();
+  elements.discordPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.discordPreviewStatus.dataset.state = model.status.key;
+  elements.discordPreviewFrame.dataset.viewport = state.discordPreviewViewport;
+  elements.discordPreviewDesktop.setAttribute("aria-pressed", String(state.discordPreviewViewport === "desktop"));
+  elements.discordPreviewMobile.setAttribute("aria-pressed", String(state.discordPreviewViewport === "mobile"));
+  elements.discordPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.discordPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.discordPreviewIssues.append(row);
+  }
+  elements.discordPreviewSurface.replaceChildren();
+  appendDiscordPreview(model);
+  elements.discordPreviewNotice.textContent = `${model.notice} 외부 Discord 요청·전송 ${model.externalWriteCount}회.`;
+}
+
+function updateDiscordBrief(next) {
+  state.discordBrief = { ...state.discordBrief, ...next };
+  renderDiscordPreview();
+}
+
+function currentBlueskyPreviewModel() {
+  return createBlueskyPreviewModel({ brief: state.blueskyBrief });
+}
+
+function appendBlueskyPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "bluesky-draft-proof";
+
+  const header = document.createElement("header");
+  header.className = "bluesky-draft-proof-header";
+  const label = document.createElement("p");
+  label.textContent = "SHORT TEXT PROOF · LOCAL REVIEW";
+  const locale = document.createElement("strong");
+  locale.textContent = model.locale.confirmed ? `LANG · ${model.locale.value}` : "LANG · 미선택";
+  header.append(label, locale);
+
+  const copy = document.createElement("section");
+  copy.className = "bluesky-draft-copy";
+  const metrics = document.createElement("p");
+  metrics.className = "bluesky-draft-metrics";
+  metrics.textContent = `${model.content.graphemeCount} / 300 grapheme · 여유 ${Math.max(0, model.content.graphemeRemaining)} · UTF-8 ${model.content.utf8Bytes} bytes`;
+  const body = document.createElement("p");
+  body.className = "bluesky-draft-body";
+  body.dir = "auto";
+  body.textContent = model.content.body || "직접 작성한 짧은 게시문을 입력하면 읽기 폭과 줄바꿈을 확인할 수 있습니다.";
+  if (!model.content.body) body.dataset.empty = "true";
+  copy.append(metrics, body);
+
+  const facets = document.createElement("section");
+  facets.className = "bluesky-draft-facets";
+  const facetLabel = document.createElement("p");
+  facetLabel.textContent = "LOCAL URL / @HANDLE CANDIDATES";
+  const candidateList = document.createElement("ul");
+  if (model.facets.candidates.length) {
+    for (const item of model.facets.candidates) {
+      const row = document.createElement("li");
+      const kind = document.createElement("span");
+      kind.textContent = item.kind.toUpperCase();
+      const value = document.createElement("strong");
+      value.dir = "auto";
+      value.textContent = item.value;
+      row.append(kind, value);
+      candidateList.append(row);
+    }
+  } else {
+    const row = document.createElement("li");
+    row.dataset.empty = "true";
+    row.textContent = "후보 없음 · 실제 게시 시 링크·mention 표시는 서비스가 결정합니다.";
+    candidateList.append(row);
+  }
+  const facetNote = document.createElement("p");
+  facetNote.className = "bluesky-draft-facet-note";
+  facetNote.textContent = `${model.facets.reviewed ? "직접 확인 표시됨" : "직접 확인 필요"} · ${model.facets.description}`;
+  facets.append(facetLabel, candidateList, facetNote);
+  preview.append(header, copy, facets);
+  elements.blueskyPreviewSurface.append(preview);
+}
+
+function syncBlueskyBriefInputs() {
+  if (document.activeElement !== elements.blueskyLocaleInput) elements.blueskyLocaleInput.value = state.blueskyBrief.locale;
+  if (document.activeElement !== elements.blueskyBodyInput) elements.blueskyBodyInput.value = state.blueskyBrief.body;
+  if (elements.blueskyFacetsReviewedInput) elements.blueskyFacetsReviewedInput.checked = state.blueskyBrief.facetsReviewed;
+}
+
+function renderBlueskyPreview() {
+  if (!elements.blueskyPreviewLab) return;
+  const spec = previewSpecForPlatform("bluesky");
+  const visible = state.phase === "success" && spec?.inputMode === "manual_brief";
+  elements.blueskyPreviewLab.hidden = !visible;
+  if (!visible) return;
+  syncBlueskyBriefInputs();
+  const model = currentBlueskyPreviewModel();
+  elements.blueskyPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.blueskyPreviewStatus.dataset.state = model.status.key;
+  elements.blueskyPreviewFrame.dataset.viewport = state.blueskyPreviewViewport;
+  elements.blueskyPreviewDesktop.setAttribute("aria-pressed", String(state.blueskyPreviewViewport === "desktop"));
+  elements.blueskyPreviewMobile.setAttribute("aria-pressed", String(state.blueskyPreviewViewport === "mobile"));
+  elements.blueskyPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.blueskyPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.blueskyPreviewIssues.append(row);
+  }
+  elements.blueskyPreviewSurface.replaceChildren();
+  appendBlueskyPreview(model);
+  elements.blueskyPreviewNotice.textContent = `${model.notice} 외부 Bluesky 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function updateBlueskyBrief(next) {
+  state.blueskyBrief = { ...state.blueskyBrief, ...next };
+  renderBlueskyPreview();
+}
+
+function currentMastodonPreviewModel() {
+  return createMastodonPreviewModel({ brief: state.mastodonBrief });
+}
+
+function appendMastodonPreview(model) {
+  const preview = document.createElement("article");
+  preview.className = "mastodon-draft-proof";
+
+  const header = document.createElement("header");
+  header.className = "mastodon-draft-proof-header";
+  const label = document.createElement("p");
+  label.textContent = "STATUS PROOF · LOCAL INSTANCE NOTE";
+  const target = document.createElement("strong");
+  target.dir = "auto";
+  target.textContent = model.content.instanceAlias ? `INSTANCE · ${model.content.instanceAlias}` : "INSTANCE · 별칭 미입력";
+  header.append(label, target);
+
+  const context = document.createElement("dl");
+  context.className = "mastodon-draft-context";
+  const rows = [
+    ["VISIBILITY", model.visibility.confirmed ? model.visibility.label : "공개 범위 미선택"],
+    ["LIMIT NOTE", model.content.characterLimit === null ? "인스턴스 상한 미입력" : `${model.content.characterLimit.toLocaleString("ko-KR")}자 · 로컬 입력값`],
+    ["URL RESERVE", model.content.links.length ? (model.content.urlReservedCharacters === null ? "URL 예약 문자 미입력" : `${model.content.urlReservedCharacters.toLocaleString("ko-KR")}자 · 로컬 입력값`) : "URL 없음 · 미적용"],
+  ];
+  for (const [termText, detailText] of rows) {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = termText;
+    const detail = document.createElement("dd");
+    detail.dir = "auto";
+    detail.textContent = detailText;
+    row.append(term, detail);
+    context.append(row);
+  }
+
+  const copy = document.createElement("section");
+  copy.className = "mastodon-draft-copy";
+  const metrics = document.createElement("p");
+  metrics.className = "mastodon-draft-metrics";
+  const expected = model.content.expectedCharacterCount.toLocaleString("ko-KR");
+  const remaining = model.content.characterRemaining === null ? "상한 미입력" : `여유 ${Math.max(0, model.content.characterRemaining).toLocaleString("ko-KR")}`;
+  metrics.textContent = `로컬 예상 ${expected}자 · 원문 ${model.content.rawCharacterCount.toLocaleString("ko-KR")}자 · ${remaining}`;
+  if (model.content.contentWarning) {
+    const warning = document.createElement("p");
+    warning.className = "mastodon-draft-warning";
+    warning.dir = "auto";
+    warning.textContent = `CONTENT WARNING · ${model.content.contentWarning}`;
+    copy.append(warning);
+  }
+  const body = document.createElement("p");
+  body.className = "mastodon-draft-body";
+  body.dir = "auto";
+  body.textContent = model.content.body || "직접 작성한 status를 입력하면 읽기 폭과 입력한 인스턴스 상한을 함께 확인할 수 있습니다.";
+  if (!model.content.body) body.dataset.empty = "true";
+  copy.append(metrics, body);
+
+  const notes = document.createElement("section");
+  notes.className = "mastodon-draft-notes";
+  const notesLabel = document.createElement("p");
+  notesLabel.textContent = "LOCAL REVIEW NOTES";
+  const noteList = document.createElement("ul");
+  const noteRows = [
+    model.content.links.length ? `URL ${model.content.links.length}개 · 실제 instance parser/shortening은 확인하지 않음` : "URL 없음 · 실제 instance parser는 확인하지 않음",
+    model.checks.rulesReviewed ? "인스턴스 규칙·공개 범위 직접 확인 표시됨" : "인스턴스 규칙·공개 범위 직접 확인 필요",
+    model.content.contentWarning ? (model.checks.contentWarningReviewed ? "content warning 표시 영향 직접 확인 표시됨" : "content warning 표시 영향 직접 확인 필요") : "content warning 없음",
+  ];
+  for (const text of noteRows) {
+    const item = document.createElement("li");
+    item.textContent = text;
+    noteList.append(item);
+  }
+  notes.append(notesLabel, noteList);
+  preview.append(header, context, copy, notes);
+  elements.mastodonPreviewSurface.append(preview);
+}
+
+function syncMastodonBriefInputs() {
+  const fields = [
+    [elements.mastodonInstanceAliasInput, "instanceAlias"],
+    [elements.mastodonCharacterLimitInput, "characterLimit"],
+    [elements.mastodonUrlReservedInput, "urlReservedCharacters"],
+    [elements.mastodonVisibilityInput, "visibility"],
+    [elements.mastodonContentWarningInput, "contentWarning"],
+    [elements.mastodonBodyInput, "body"],
+  ];
+  for (const [element, key] of fields) {
+    if (element && document.activeElement !== element) element.value = state.mastodonBrief[key];
+  }
+  if (elements.mastodonRulesReviewedInput) elements.mastodonRulesReviewedInput.checked = state.mastodonBrief.rulesReviewed;
+  if (elements.mastodonContentWarningReviewedInput) elements.mastodonContentWarningReviewedInput.checked = state.mastodonBrief.contentWarningReviewed;
+}
+
+function renderMastodonPreview() {
+  if (!elements.mastodonPreviewLab) return;
+  const spec = previewSpecForPlatform("mastodon");
+  const visible = state.phase === "success" && spec?.inputMode === "manual_brief";
+  elements.mastodonPreviewLab.hidden = !visible;
+  if (!visible) return;
+  syncMastodonBriefInputs();
+  const model = currentMastodonPreviewModel();
+  elements.mastodonPreviewStatus.textContent = `${model.status.label} · ${model.status.description}`;
+  elements.mastodonPreviewStatus.dataset.state = model.status.key;
+  elements.mastodonPreviewFrame.dataset.viewport = state.mastodonPreviewViewport;
+  elements.mastodonPreviewDesktop.setAttribute("aria-pressed", String(state.mastodonPreviewViewport === "desktop"));
+  elements.mastodonPreviewMobile.setAttribute("aria-pressed", String(state.mastodonPreviewViewport === "mobile"));
+  elements.mastodonPreviewIssues.hidden = model.content.issues.length === 0;
+  elements.mastodonPreviewIssues.replaceChildren();
+  for (const issue of model.content.issues) {
+    const row = document.createElement("li");
+    row.dataset.code = issue.code;
+    row.textContent = issue.message;
+    elements.mastodonPreviewIssues.append(row);
+  }
+  elements.mastodonPreviewSurface.replaceChildren();
+  appendMastodonPreview(model);
+  elements.mastodonPreviewNotice.textContent = `${model.notice} 외부 Mastodon 요청·게시 ${model.externalWriteCount}회.`;
+}
+
+function updateMastodonBrief(next) {
+  state.mastodonBrief = { ...state.mastodonBrief, ...next };
+  renderMastodonPreview();
+}
+
 function renderActiveDraft({ focus = false } = {}) {
   const config = DRAFT_CONFIG[state.activeDraft];
   const source = localeEntry(SOURCE_LOCALE);
@@ -2099,21 +4633,6 @@ function renderActiveDraft({ focus = false } = {}) {
     : config.help;
   renderTranslateControls();
   renderDraftValidation();
-  const stateForIssues = displayCompletionState(activeDocument(), {
-    locale: state.activeLocale,
-    validationOk: validatePublish(state.activeDraft, activePublishFields() ?? {}, {
-      facts: translationFacts(), campaignBrief: currentCampaignBrief(),
-    }).ok,
-    authorInputs: currentAuthorInputs(),
-    operationInputs: currentOperationInputs(),
-    campaignBrief: currentCampaignBrief(),
-    approvalStatus: currentApprovalStatus(),
-  });
-  renderValidationIssues([
-    ...(translation?.validation?.issues ?? []),
-    ...stateForIssues.contentInputIssues.map((issue) => ({ group: "policy", message: issue.message })),
-    ...stateForIssues.operationIssues.map((issue) => ({ group: "prepublish", message: issue.message })),
-  ]);
 
   for (const tab of elements.tabs) {
     const active = tab.dataset.draft === state.activeDraft;
@@ -2122,6 +4641,24 @@ function renderActiveDraft({ focus = false } = {}) {
     if (active) elements.draftPanel.setAttribute("aria-labelledby", tab.id);
   }
   renderThreadsPreview();
+  renderXReview();
+  renderLinkedInPreview();
+  renderFacebookPreview();
+  renderInstagramPreview();
+  renderShortsPreview();
+  renderProductHuntPreview();
+  renderPeerlistPreview();
+  renderDisquietPreview();
+  renderRedditPreview();
+  renderIndieHackersPreview();
+  renderDevPreview();
+  renderOkkyPreview();
+  renderGeekNewsPreview();
+  renderShowHnPreview();
+  renderTikTokPreview();
+  renderDiscordPreview();
+  renderBlueskyPreview();
+  renderMastodonPreview();
   if (focus) {
     if (state.activeLocale !== SOURCE_LOCALE) elements.translationEditor.focus();
     else elements.editor.focus();
@@ -2316,6 +4853,14 @@ async function generateRepository(repoUrl) {
     state.dryRunKillSwitchLocked = false;
     state.dryRunReceipt = null;
     state.dryRunEvidence = null;
+    state.tiktokBrief = { caption: "", cover: "", visibility: "unconfirmed", assetReviewed: false, watermarkReviewed: false };
+    state.tiktokPreviewViewport = "desktop";
+    state.discordBrief = { targetAlias: "", message: "", embedTitle: "", embedDescription: "", embedUrl: "", mentionReviewed: false };
+    state.discordPreviewViewport = "desktop";
+    state.blueskyBrief = { locale: "unconfirmed", body: "", facetsReviewed: false };
+    state.blueskyPreviewViewport = "desktop";
+    state.mastodonBrief = { instanceAlias: "", characterLimit: "", urlReservedCharacters: "", visibility: "unconfirmed", contentWarning: "", body: "", rulesReviewed: false, contentWarningReviewed: false };
+    state.mastodonPreviewViewport = "desktop";
     state.dirty = false;
     state.persisted = false;
     setLoading(false);
@@ -2478,6 +5023,33 @@ for (const tab of elements.tabs) {
   });
 }
 
+const xReviewViewButtons = [elements.xEditorView, elements.xReviewView];
+for (const [index, button] of xReviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectXReviewMode(index === 1 ? "review" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % xReviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + xReviewViewButtons.length) % xReviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = xReviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectXReviewMode(next === 1 ? "review" : "editor", { focus: true });
+  });
+}
+
+elements.xReviewDesktop?.addEventListener("click", () => {
+  if (!X_REVIEW_KEYS.has(state.activeDraft)) return;
+  state.xReviewViewport = "desktop";
+  renderXReview();
+});
+
+elements.xReviewMobile?.addEventListener("click", () => {
+  if (!X_REVIEW_KEYS.has(state.activeDraft)) return;
+  state.xReviewViewport = "mobile";
+  renderXReview();
+});
+
 const threadsPreviewViewButtons = [elements.threadsEditorView, elements.threadsPreviewView];
 for (const [index, button] of threadsPreviewViewButtons.entries()) {
   button?.addEventListener("click", () => selectThreadsPreviewMode(index === 1 ? "preview" : "editor"));
@@ -2504,6 +5076,401 @@ elements.threadsPreviewMobile?.addEventListener("click", () => {
   state.threadsPreviewViewport = "mobile";
   renderThreadsPreview();
 });
+
+const linkedinPreviewViewButtons = [elements.linkedinEditorView, elements.linkedinPreviewView];
+for (const [index, button] of linkedinPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectLinkedInPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % linkedinPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + linkedinPreviewViewButtons.length) % linkedinPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = linkedinPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectLinkedInPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.linkedinPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "linkedin") return;
+  state.linkedinPreviewViewport = "desktop";
+  renderLinkedInPreview();
+});
+
+elements.linkedinPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "linkedin") return;
+  state.linkedinPreviewViewport = "mobile";
+  renderLinkedInPreview();
+});
+
+const facebookPreviewViewButtons = [elements.facebookEditorView, elements.facebookReelsView, elements.facebookGroupView];
+for (const [index, button] of facebookPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectFacebookPreviewMode(["editor", "reels", "group"][index]));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % facebookPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + facebookPreviewViewButtons.length) % facebookPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = facebookPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectFacebookPreviewMode(["editor", "reels", "group"][next], { focus: true });
+  });
+}
+
+elements.facebookPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "facebook") return;
+  state.facebookPreviewViewport = "desktop";
+  renderFacebookPreview();
+});
+
+elements.facebookPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "facebook") return;
+  state.facebookPreviewViewport = "mobile";
+  renderFacebookPreview();
+});
+
+const instagramPreviewViewButtons = [elements.instagramEditorView, elements.instagramPreviewView];
+for (const [index, button] of instagramPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectInstagramPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % instagramPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + instagramPreviewViewButtons.length) % instagramPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = instagramPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectInstagramPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.instagramPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "instagram") return;
+  state.instagramPreviewViewport = "desktop";
+  renderInstagramPreview();
+});
+
+elements.instagramPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "instagram") return;
+  state.instagramPreviewViewport = "mobile";
+  renderInstagramPreview();
+});
+
+const shortsPreviewViewButtons = [elements.shortsEditorView, elements.shortsPreviewView];
+for (const [index, button] of shortsPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectShortsPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % shortsPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + shortsPreviewViewButtons.length) % shortsPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = shortsPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectShortsPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.shortsPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "shorts") return;
+  state.shortsPreviewViewport = "desktop";
+  renderShortsPreview();
+});
+
+elements.shortsPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "shorts") return;
+  state.shortsPreviewViewport = "mobile";
+  renderShortsPreview();
+});
+
+const productHuntPreviewViewButtons = [elements.productHuntEditorView, elements.productHuntPreviewView];
+for (const [index, button] of productHuntPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectProductHuntPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % productHuntPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + productHuntPreviewViewButtons.length) % productHuntPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = productHuntPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectProductHuntPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.productHuntPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "productHunt") return;
+  state.productHuntPreviewViewport = "desktop";
+  renderProductHuntPreview();
+});
+
+elements.productHuntPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "productHunt") return;
+  state.productHuntPreviewViewport = "mobile";
+  renderProductHuntPreview();
+});
+
+const peerlistPreviewViewButtons = [elements.peerlistEditorView, elements.peerlistPreviewView];
+for (const [index, button] of peerlistPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectPeerlistPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % peerlistPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + peerlistPreviewViewButtons.length) % peerlistPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = peerlistPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectPeerlistPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.peerlistPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "peerlist") return;
+  state.peerlistPreviewViewport = "desktop";
+  renderPeerlistPreview();
+});
+
+elements.peerlistPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "peerlist") return;
+  state.peerlistPreviewViewport = "mobile";
+  renderPeerlistPreview();
+});
+
+const disquietPreviewViewButtons = [elements.disquietEditorView, elements.disquietPreviewView];
+for (const [index, button] of disquietPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectDisquietPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % disquietPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + disquietPreviewViewButtons.length) % disquietPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = disquietPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectDisquietPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.disquietPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "disquiet") return;
+  state.disquietPreviewViewport = "desktop";
+  renderDisquietPreview();
+});
+
+elements.disquietPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "disquiet") return;
+  state.disquietPreviewViewport = "mobile";
+  renderDisquietPreview();
+});
+
+const redditPreviewViewButtons = [elements.redditEditorView, elements.redditPreviewView];
+for (const [index, button] of redditPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectRedditPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % redditPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + redditPreviewViewButtons.length) % redditPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = redditPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectRedditPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.redditBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.redditPostTypeInput?.addEventListener("change", () => updateRedditBrief({ postType: elements.redditPostTypeInput.value }));
+elements.redditTitleInput?.addEventListener("input", () => updateRedditBrief({ title: elements.redditTitleInput.value }));
+elements.redditBodyInput?.addEventListener("input", () => updateRedditBrief({ body: elements.redditBodyInput.value }));
+elements.redditNsfwInput?.addEventListener("change", () => updateRedditBrief({ nsfw: elements.redditNsfwInput.checked }));
+elements.redditSpoilerInput?.addEventListener("change", () => updateRedditBrief({ spoiler: elements.redditSpoilerInput.checked }));
+elements.redditPreviewReset?.addEventListener("click", () => {
+  state.redditBrief = { title: "", body: "", postType: "unconfirmed", nsfw: false, spoiler: false };
+  renderRedditPreview();
+  elements.redditTitleInput.focus();
+});
+
+elements.redditPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "reddit") return;
+  state.redditPreviewViewport = "desktop";
+  renderRedditPreview();
+});
+
+elements.redditPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "reddit") return;
+  state.redditPreviewViewport = "mobile";
+  renderRedditPreview();
+});
+
+const indieHackersPreviewViewButtons = [elements.indieHackersEditorView, elements.indieHackersPreviewView];
+for (const [index, button] of indieHackersPreviewViewButtons.entries()) {
+  button?.addEventListener("click", () => selectIndieHackersPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % indieHackersPreviewViewButtons.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + indieHackersPreviewViewButtons.length) % indieHackersPreviewViewButtons.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = indieHackersPreviewViewButtons.length - 1;
+    else return;
+    event.preventDefault();
+    selectIndieHackersPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+
+elements.indieHackersPreviewDesktop?.addEventListener("click", () => {
+  if (state.activeDraft !== "indieHackers") return;
+  state.indieHackersPreviewViewport = "desktop";
+  renderIndieHackersPreview();
+});
+
+elements.indieHackersPreviewMobile?.addEventListener("click", () => {
+  if (state.activeDraft !== "indieHackers") return;
+  state.indieHackersPreviewViewport = "mobile";
+  renderIndieHackersPreview();
+});
+
+const devPreviewTabs = [elements.devEditorView, elements.devPreviewView];
+for (const [index, button] of devPreviewTabs.entries()) {
+  button?.addEventListener("click", () => selectDevPreview(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? devPreviewTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + devPreviewTabs.length) % devPreviewTabs.length;
+    selectDevPreview(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+elements.devTitleInput?.addEventListener("input", () => { state.devBrief = { ...state.devBrief, title: elements.devTitleInput.value }; renderDevPreview(); });
+elements.devBodyInput?.addEventListener("input", () => { state.devBrief = { ...state.devBrief, body: elements.devBodyInput.value }; renderDevPreview(); });
+elements.devTagsInput?.addEventListener("input", () => { state.devBrief = { ...state.devBrief, tags: elements.devTagsInput.value }; renderDevPreview(); });
+elements.devDisclosureInput?.addEventListener("input", () => { state.devBrief = { ...state.devBrief, disclosure: elements.devDisclosureInput.value }; renderDevPreview(); });
+
+const okkyPreviewTabs = [elements.okkyEditorView, elements.okkyPreviewView];
+for (const [index, button] of okkyPreviewTabs.entries()) {
+  button?.addEventListener("click", () => selectOkkyPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? okkyPreviewTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + okkyPreviewTabs.length) % okkyPreviewTabs.length;
+    selectOkkyPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+elements.okkyContextInput?.addEventListener("change", () => { state.okkyBrief = { ...state.okkyBrief, context: elements.okkyContextInput.value }; renderOkkyPreview(); });
+elements.okkyPreviewDesktop?.addEventListener("click", () => { state.okkyPreviewViewport = "desktop"; renderOkkyPreview(); });
+elements.okkyPreviewMobile?.addEventListener("click", () => { state.okkyPreviewViewport = "mobile"; renderOkkyPreview(); });
+
+const geeknewsPreviewTabs = [elements.geeknewsEditorView, elements.geeknewsPreviewView];
+for (const [index, button] of geeknewsPreviewTabs.entries()) {
+  button?.addEventListener("click", () => selectGeekNewsPreviewMode(index === 1 ? "preview" : "editor"));
+  button?.addEventListener("keydown", (event) => {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? geeknewsPreviewTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + geeknewsPreviewTabs.length) % geeknewsPreviewTabs.length;
+    selectGeekNewsPreviewMode(next === 1 ? "preview" : "editor", { focus: true });
+  });
+}
+elements.geeknewsPreviewDesktop?.addEventListener("click", () => { state.geeknewsPreviewViewport = "desktop"; renderGeekNewsPreview(); });
+elements.geeknewsPreviewMobile?.addEventListener("click", () => { state.geeknewsPreviewViewport = "mobile"; renderGeekNewsPreview(); });
+
+const showHnPreviewTabs = [elements.showHnAuthorView, elements.showHnPreviewView];
+for (const [index, button] of showHnPreviewTabs.entries()) {
+  button?.addEventListener("click", () => selectShowHnPreviewMode(index === 1 ? "preview" : "author"));
+  button?.addEventListener("keydown", (event) => {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? showHnPreviewTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + showHnPreviewTabs.length) % showHnPreviewTabs.length;
+    selectShowHnPreviewMode(next === 1 ? "preview" : "author", { focus: true });
+  });
+}
+elements.showHnBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.showHnTitleInput?.addEventListener("input", () => updateShowHnBrief({ title: elements.showHnTitleInput.value }));
+elements.showHnBodyInput?.addEventListener("input", () => updateShowHnBrief({ body: elements.showHnBodyInput.value }));
+elements.showHnSourceInput?.addEventListener("input", () => updateShowHnBrief({ sourceUrl: elements.showHnSourceInput.value }));
+elements.showHnDemoInput?.addEventListener("input", () => updateShowHnBrief({ demoUrl: elements.showHnDemoInput.value }));
+elements.showHnHandwrittenInput?.addEventListener("change", () => updateShowHnBrief({ handwrittenConfirmed: elements.showHnHandwrittenInput.checked }));
+elements.showHnOwnershipInput?.addEventListener("change", () => updateShowHnBrief({ ownershipConfirmed: elements.showHnOwnershipInput.checked }));
+elements.showHnReset?.addEventListener("click", () => {
+  state.showHnBrief = { title: "", body: "", sourceUrl: "", demoUrl: "", handwrittenConfirmed: false, ownershipConfirmed: false };
+  renderShowHnPreview();
+  elements.showHnTitleInput.focus();
+});
+elements.showHnPreviewDesktop?.addEventListener("click", () => { state.showHnPreviewViewport = "desktop"; renderShowHnPreview(); });
+elements.showHnPreviewMobile?.addEventListener("click", () => { state.showHnPreviewViewport = "mobile"; renderShowHnPreview(); });
+
+elements.tiktokCaptionInput?.addEventListener("input", () => updateTikTokBrief({ caption: elements.tiktokCaptionInput.value }));
+elements.tiktokBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.tiktokCoverInput?.addEventListener("input", () => updateTikTokBrief({ cover: elements.tiktokCoverInput.value }));
+elements.tiktokVisibilityInput?.addEventListener("change", () => updateTikTokBrief({ visibility: elements.tiktokVisibilityInput.value }));
+elements.tiktokAssetReviewedInput?.addEventListener("change", () => updateTikTokBrief({ assetReviewed: elements.tiktokAssetReviewedInput.checked }));
+elements.tiktokWatermarkReviewedInput?.addEventListener("change", () => updateTikTokBrief({ watermarkReviewed: elements.tiktokWatermarkReviewedInput.checked }));
+elements.tiktokPreviewReset?.addEventListener("click", () => {
+  state.tiktokBrief = { caption: "", cover: "", visibility: "unconfirmed", assetReviewed: false, watermarkReviewed: false };
+  renderTikTokPreview();
+  elements.tiktokCaptionInput.focus();
+});
+
+elements.tiktokPreviewDesktop?.addEventListener("click", () => {
+  state.tiktokPreviewViewport = "desktop";
+  renderTikTokPreview();
+});
+
+elements.tiktokPreviewMobile?.addEventListener("click", () => {
+  state.tiktokPreviewViewport = "mobile";
+  renderTikTokPreview();
+});
+
+elements.discordBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.discordTargetAliasInput?.addEventListener("input", () => updateDiscordBrief({ targetAlias: elements.discordTargetAliasInput.value }));
+elements.discordMessageInput?.addEventListener("input", () => updateDiscordBrief({ message: elements.discordMessageInput.value }));
+elements.discordEmbedTitleInput?.addEventListener("input", () => updateDiscordBrief({ embedTitle: elements.discordEmbedTitleInput.value }));
+elements.discordEmbedDescriptionInput?.addEventListener("input", () => updateDiscordBrief({ embedDescription: elements.discordEmbedDescriptionInput.value }));
+elements.discordEmbedUrlInput?.addEventListener("input", () => updateDiscordBrief({ embedUrl: elements.discordEmbedUrlInput.value }));
+elements.discordMentionReviewedInput?.addEventListener("change", () => updateDiscordBrief({ mentionReviewed: elements.discordMentionReviewedInput.checked }));
+elements.discordPreviewReset?.addEventListener("click", () => {
+  state.discordBrief = { targetAlias: "", message: "", embedTitle: "", embedDescription: "", embedUrl: "", mentionReviewed: false };
+  state.discordPreviewViewport = "desktop";
+  renderDiscordPreview();
+  elements.discordTargetAliasInput.focus();
+});
+elements.discordPreviewDesktop?.addEventListener("click", () => { state.discordPreviewViewport = "desktop"; renderDiscordPreview(); });
+elements.discordPreviewMobile?.addEventListener("click", () => { state.discordPreviewViewport = "mobile"; renderDiscordPreview(); });
+
+elements.blueskyBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.blueskyLocaleInput?.addEventListener("change", () => updateBlueskyBrief({ locale: elements.blueskyLocaleInput.value }));
+elements.blueskyBodyInput?.addEventListener("input", () => updateBlueskyBrief({ body: elements.blueskyBodyInput.value }));
+elements.blueskyFacetsReviewedInput?.addEventListener("change", () => updateBlueskyBrief({ facetsReviewed: elements.blueskyFacetsReviewedInput.checked }));
+elements.blueskyPreviewReset?.addEventListener("click", () => {
+  state.blueskyBrief = { locale: "unconfirmed", body: "", facetsReviewed: false };
+  state.blueskyPreviewViewport = "desktop";
+  renderBlueskyPreview();
+  elements.blueskyLocaleInput.focus();
+});
+elements.blueskyPreviewDesktop?.addEventListener("click", () => { state.blueskyPreviewViewport = "desktop"; renderBlueskyPreview(); });
+elements.blueskyPreviewMobile?.addEventListener("click", () => { state.blueskyPreviewViewport = "mobile"; renderBlueskyPreview(); });
+
+elements.mastodonBriefForm?.addEventListener("submit", (event) => event.preventDefault());
+elements.mastodonInstanceAliasInput?.addEventListener("input", () => updateMastodonBrief({ instanceAlias: elements.mastodonInstanceAliasInput.value }));
+elements.mastodonCharacterLimitInput?.addEventListener("input", () => updateMastodonBrief({ characterLimit: elements.mastodonCharacterLimitInput.value }));
+elements.mastodonUrlReservedInput?.addEventListener("input", () => updateMastodonBrief({ urlReservedCharacters: elements.mastodonUrlReservedInput.value }));
+elements.mastodonVisibilityInput?.addEventListener("change", () => updateMastodonBrief({ visibility: elements.mastodonVisibilityInput.value }));
+elements.mastodonContentWarningInput?.addEventListener("input", () => updateMastodonBrief({ contentWarning: elements.mastodonContentWarningInput.value }));
+elements.mastodonBodyInput?.addEventListener("input", () => updateMastodonBrief({ body: elements.mastodonBodyInput.value }));
+elements.mastodonRulesReviewedInput?.addEventListener("change", () => updateMastodonBrief({ rulesReviewed: elements.mastodonRulesReviewedInput.checked }));
+elements.mastodonContentWarningReviewedInput?.addEventListener("change", () => updateMastodonBrief({ contentWarningReviewed: elements.mastodonContentWarningReviewedInput.checked }));
+elements.mastodonPreviewReset?.addEventListener("click", () => {
+  state.mastodonBrief = { instanceAlias: "", characterLimit: "", urlReservedCharacters: "", visibility: "unconfirmed", contentWarning: "", body: "", rulesReviewed: false, contentWarningReviewed: false };
+  state.mastodonPreviewViewport = "desktop";
+  renderMastodonPreview();
+  elements.mastodonInstanceAliasInput.focus();
+});
+elements.mastodonPreviewDesktop?.addEventListener("click", () => { state.mastodonPreviewViewport = "desktop"; renderMastodonPreview(); });
+elements.mastodonPreviewMobile?.addEventListener("click", () => { state.mastodonPreviewViewport = "mobile"; renderMastodonPreview(); });
 
 function updateSourceFromEditor() {
   const document = activeDocument();

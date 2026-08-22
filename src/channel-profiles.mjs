@@ -39,6 +39,8 @@ export const AUTHOR_INPUT_DEFS = Object.freeze({
     { key: "subreddit", label: "대상 서브레딧", minLength: 3, hint: "예: r/sideproject. 자기홍보와 계정 조건을 확인하세요." },
     { key: "rules", label: "확인한 규칙", minLength: 10, hint: "플레어·자기홍보·계정 조건을 한국어로 적습니다." },
     { key: "flair", label: "플레어", minLength: 2, hint: "해당 서브레딧에서 쓸 플레어가 있으면 적습니다." },
+    { key: "ruleUrl", label: "커뮤니티 규칙 URL", type: "url", scope: "operations", hint: "해당 community의 실제 규칙 페이지 또는 고정 규칙 글 URL을 적습니다." },
+    { key: "rulesCheckedAt", label: "규칙 확인일", type: "date", scope: "operations", hint: "자기홍보·flair·계정 조건을 직접 확인한 날짜를 적습니다." },
   ]),
   indieHackers: Object.freeze([
     { key: "motivation", label: "만든 이유", minLength: 12, hint: "실제로 이 프로젝트를 시작한 계기를 한국어로 적습니다." },
@@ -57,6 +59,12 @@ export const AUTHOR_INPUT_DEFS = Object.freeze({
     { key: "makerAccountConfirmed", label: "Maker 계정·권한 확인", type: "boolean", scope: "operations", hint: "Maker 계정과 프로젝트 대표 권한을 확인합니다." },
     { key: "launchReady", label: "Launch 준비 확인", type: "boolean", scope: "operations", hint: "제출 URL·일정·제품 공개 상태를 확인합니다." },
     { key: "galleryAssetId", label: "Gallery 자산 식별값", minLength: 6, scope: "operations", hint: "실제 썸네일·갤러리의 파일명 또는 asset hash를 적습니다." },
+  ]),
+  peerlist: Object.freeze([
+    { key: "individualProfileConfirmed", label: "개인 프로필 조건 확인", type: "boolean", scope: "operations", hint: "개인 profile의 유효한 이름·사진 조건을 직접 확인합니다." },
+    { key: "projectCompleteConfirmed", label: "프로젝트 100% 완료 확인", type: "boolean", scope: "operations", hint: "Peerlist profile에 등록한 프로젝트의 필수 항목과 100% completion을 직접 확인합니다." },
+    { key: "coverAssetId", label: "Cover 자산 식별값", minLength: 6, scope: "operations", hint: "실제 cover image의 파일명 또는 asset hash를 적습니다. 파일·경로는 저장하지 않습니다." },
+    { key: "demoUrl", label: "공개 Demo URL", type: "url", scope: "operations", hint: "프로젝트 페이지에서 직접 연결할 공개 https URL을 적습니다." },
   ]),
   facebook: Object.freeze([
     { key: "groupName", label: "대상 Facebook 그룹", minLength: 3, scope: "operations", hint: "게시할 그룹 이름을 적습니다." },
@@ -272,7 +280,10 @@ const BASE_CHANNEL_PROFILES = {
     prohibitedPatterns: ["best", "revolutionary"],
     aiPolicy: "keep verified facts only",
     composeHint: "Disquiet: keep productName, tagline, productLink, and postBody as separate fields. Product first, then a connected post. Do not collapse into one body.",
-    prepublishGates: [{ key: "productRegistered", message: "제품을 먼저 등록·검토받은 뒤 연결 포스트로 쓰세요." }],
+    prepublishGates: [
+      { key: "productRegistered", message: "본인이 만든 제품을 먼저 등록하고 검토를 요청하세요." },
+      { key: "productReviewApproved", message: "제품 검토 승인 후에만 연결 포스트로 쓰세요." },
+    ],
   },
   facebook: {
     locale: "en-US",
